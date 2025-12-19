@@ -19,6 +19,7 @@ export default function Home() {
   const [statusFilter, setStatusFilter] = useState("pendiente");
   const [priorityFilter, setPriorityFilter] = useState("all");
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
+  const [isSearching, setIsSearching] = useState(false);
 
   useEffect(() => {
     const savedAuth = localStorage.getItem("dashboard_auth");
@@ -84,6 +85,38 @@ export default function Home() {
     setLoading(false);
   }
 
+  async function handleSearch() {
+    setIsSearching(true);
+    toast.info("Iniciando búsqueda de nuevas fichas...");
+    
+    try {
+      // TEMPORAL: Apuntar directamente al sandbox para que funcione la demo
+      // Cuando se despliegue en Render, esto se cambiará por la URL de Render
+      const backendUrl = "https://5000-iyv22b4xp03kckrnqy6xs-807a6cb4.manusvm.computer";
+        
+      const response = await fetch(`${backendUrl}/api/run-search`, {
+        method: 'POST',
+      });
+      
+      if (response.ok) {
+        toast.success("Búsqueda iniciada en segundo plano. Las fichas aparecerán pronto.");
+        // Polling status could be added here
+      } else {
+        const data = await response.json();
+        if (response.status === 409) {
+           toast.warning("Ya hay una búsqueda en curso.");
+        } else {
+           toast.error("Error al iniciar búsqueda: " + data.message);
+        }
+      }
+    } catch (error) {
+      console.error(error);
+      toast.error("Error de conexión con el servidor de búsqueda");
+    } finally {
+      setIsSearching(false);
+    }
+  }
+
   async function updateStatus(id: string, newStatus: 'contactado' | 'descartado' | 'pendiente') {
     // Optimistic update
     setFichas(prev => prev.map(f => f.id === id ? { ...f, estado: newStatus } : f));
@@ -140,6 +173,23 @@ export default function Home() {
               <div className="text-xs text-slate-500 uppercase font-bold">Contactados</div>
               <div className="text-2xl font-bold text-green-600">{stats.contactados}</div>
             </Card>
+            <Button 
+              onClick={handleSearch} 
+              disabled={isSearching}
+              className="h-auto py-2 bg-blue-600 hover:bg-blue-700 text-white shadow-sm"
+            >
+              {isSearching ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Buscando...
+                </>
+              ) : (
+                <>
+                  <Search className="mr-2 h-4 w-4" />
+                  Buscar Nuevas Fichas
+                </>
+              )}
+            </Button>
           </div>
         </div>
 
