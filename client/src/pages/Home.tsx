@@ -304,7 +304,8 @@ function FichaList({ fichas, onUpdateStatus }: { fichas: Ficha[], onUpdateStatus
   };
 
   const getPriorityColor = (p: string) => {
-    switch(p) {
+    if (!p) return 'bg-slate-100 text-slate-800 border-slate-200';
+    switch(p.toLowerCase()) {
       case 'alta': return 'bg-red-100 text-red-800 border-red-200';
       case 'media': return 'bg-amber-100 text-amber-800 border-amber-200';
       default: return 'bg-slate-100 text-slate-800 border-slate-200';
@@ -312,8 +313,9 @@ function FichaList({ fichas, onUpdateStatus }: { fichas: Ficha[], onUpdateStatus
   };
 
   const getChannelIcon = (c: string) => {
-    if (c?.includes('email')) return <Mail className="h-4 w-4" />;
-    if (c?.includes('reddit') || c?.includes('facebook')) return <MessageCircle className="h-4 w-4" />;
+    if (!c) return <ExternalLink className="h-4 w-4" />;
+    if (c.includes('email')) return <Mail className="h-4 w-4" />;
+    if (c.includes('reddit') || c.includes('facebook')) return <MessageCircle className="h-4 w-4" />;
     return <ExternalLink className="h-4 w-4" />;
   };
 
@@ -415,7 +417,8 @@ function FichaCard({ ficha, onUpdateStatus }: { ficha: Ficha, onUpdateStatus: (i
   };
 
   const getPriorityColor = (p: string) => {
-    switch(p) {
+    if (!p) return 'bg-slate-100 text-slate-800 border-slate-200';
+    switch(p.toLowerCase()) {
       case 'alta': return 'bg-red-100 text-red-800 border-red-200';
       case 'media': return 'bg-amber-100 text-amber-800 border-amber-200';
       default: return 'bg-slate-100 text-slate-800 border-slate-200';
@@ -423,8 +426,9 @@ function FichaCard({ ficha, onUpdateStatus }: { ficha: Ficha, onUpdateStatus: (i
   };
 
   const getChannelIcon = (c: string) => {
-    if (c?.includes('email')) return <Mail className="h-4 w-4" />;
-    if (c?.includes('reddit') || c?.includes('facebook')) return <MessageCircle className="h-4 w-4" />;
+    if (!c) return <ExternalLink className="h-4 w-4" />;
+    if (c.includes('email')) return <Mail className="h-4 w-4" />;
+    if (c.includes('reddit') || c.includes('facebook')) return <MessageCircle className="h-4 w-4" />;
     return <ExternalLink className="h-4 w-4" />;
   };
 
@@ -437,20 +441,20 @@ function FichaCard({ ficha, onUpdateStatus }: { ficha: Ficha, onUpdateStatus: (i
           <div className="flex-1 space-y-3">
             <div className="flex items-center gap-2">
               <Badge variant="outline" className={getPriorityColor(ficha.prioridad)}>
-                {ficha.prioridad.toUpperCase()}
+                {(ficha.prioridad || "N/A").toUpperCase()}
               </Badge>
               <Badge variant="secondary" className="flex items-center gap-1">
                 {getChannelIcon(ficha.canal_recomendado)}
-                {ficha.canal_recomendado}
+                {ficha.canal_recomendado || "Desconocido"}
               </Badge>
               <span className="text-xs text-slate-400 font-mono">{ficha.id.split('-').pop()}</span>
             </div>
             
             <h3 className="text-lg font-semibold text-slate-900 leading-tight">
-              {ficha.titulo}
+              {ficha.titulo || "Sin título"}
             </h3>
             <p className="text-sm text-slate-600 font-medium">
-              {ficha.institucion}
+              {ficha.institucion || "Institución desconocida"}
             </p>
             
             {ficha.timing_razon && (
@@ -468,7 +472,7 @@ function FichaCard({ ficha, onUpdateStatus }: { ficha: Ficha, onUpdateStatus: (i
               </Button>
             </div>
             <p className="whitespace-pre-wrap line-clamp-4 hover:line-clamp-none transition-all">
-              {ficha.propuesta_comunicativa}
+              {ficha.propuesta_comunicativa || "Sin propuesta comunicativa generada."}
             </p>
           </div>
 
