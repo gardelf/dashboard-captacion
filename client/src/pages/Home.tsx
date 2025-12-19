@@ -6,7 +6,8 @@ import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Loader2, Mail, MessageCircle, ExternalLink, CheckCircle, XCircle, Copy, Search, Filter } from "lucide-react";
+import { Loader2, Mail, MessageCircle, ExternalLink, CheckCircle, XCircle, Copy, Search, Filter, LayoutGrid, List } from "lucide-react";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { toast } from "sonner";
 
 export default function Home() {
@@ -15,6 +16,7 @@ export default function Home() {
   const [filter, setFilter] = useState("");
   const [statusFilter, setStatusFilter] = useState("pendiente");
   const [priorityFilter, setPriorityFilter] = useState("all");
+  const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
 
   useEffect(() => {
     fetchFichas();
@@ -129,6 +131,25 @@ export default function Home() {
                 <SelectItem value="baja">Baja</SelectItem>
               </SelectContent>
             </Select>
+            
+            <div className="flex bg-slate-100 dark:bg-slate-800 p-1 rounded-lg border border-slate-200 dark:border-slate-700">
+              <Button 
+                variant={viewMode === 'grid' ? 'default' : 'ghost'} 
+                size="icon" 
+                className="h-8 w-8"
+                onClick={() => setViewMode('grid')}
+              >
+                <LayoutGrid className="h-4 w-4" />
+              </Button>
+              <Button 
+                variant={viewMode === 'list' ? 'default' : 'ghost'} 
+                size="icon" 
+                className="h-8 w-8"
+                onClick={() => setViewMode('list')}
+              >
+                <List className="h-4 w-4" />
+              </Button>
+            </div>
           </div>
         </Card>
 
@@ -138,19 +159,136 @@ export default function Home() {
             <Loader2 className="h-10 w-10 animate-spin text-blue-600" />
           </div>
         ) : (
-          <div className="grid gap-4">
-            {filteredFichas.map((ficha) => (
-              <FichaCard key={ficha.id} ficha={ficha} onUpdateStatus={updateStatus} />
-            ))}
+          <>
+            {viewMode === 'grid' ? (
+              <div className="grid gap-4">
+                {filteredFichas.map((ficha) => (
+                  <FichaCard key={ficha.id} ficha={ficha} onUpdateStatus={updateStatus} />
+                ))}
+              </div>
+            ) : (
+              <FichaList fichas={filteredFichas} onUpdateStatus={updateStatus} />
+            )}
+            
             {filteredFichas.length === 0 && (
               <div className="text-center py-20 text-slate-500">
                 No se encontraron fichas con estos filtros
               </div>
             )}
-          </div>
+          </>
         )}
       </div>
     </div>
+  );
+}
+
+function FichaList({ fichas, onUpdateStatus }: { fichas: Ficha[], onUpdateStatus: (id: string, status: any) => void }) {
+  const copyToClipboard = (text: string) => {
+    navigator.clipboard.writeText(text);
+    toast.success("Copiado al portapapeles");
+  };
+
+  const openAction = (ficha: Ficha) => {
+    if (ficha.canal_recomendado === 'email' && ficha.email) {
+      const subject = encodeURIComponent("Alojamiento para estudiantes internacionales en Madrid");
+      const body = encodeURIComponent(ficha.propuesta_comunicativa);
+      window.open(`https://mail.google.com/mail/?view=cm&fs=1&to=${ficha.email}&su=${subject}&body=${body}`, '_blank');
+    } else if (ficha.canal_recomendado === 'reddit' && ficha.url) {
+      copyToClipboard(ficha.propuesta_comunicativa);
+      window.open(ficha.url, '_blank');
+      toast.info("Propuesta copiada. Pegala en Reddit.");
+    } else if (ficha.canal_recomendado === 'whatsapp' && ficha.telefono) {
+      const text = encodeURIComponent(ficha.propuesta_comunicativa);
+      window.open(`https://wa.me/${ficha.telefono}?text=${text}`, '_blank');
+    } else {
+      copyToClipboard(ficha.propuesta_comunicativa);
+      window.open(ficha.url, '_blank');
+      toast.info("Propuesta copiada. Pegala en el formulario.");
+    }
+  };
+
+  const getPriorityColor = (p: string) => {
+    switch(p) {
+      case 'alta': return 'bg-red-100 text-red-800 border-red-200';
+      case 'media': return 'bg-amber-100 text-amber-800 border-amber-200';
+      default: return 'bg-slate-100 text-slate-800 border-slate-200';
+    }
+  };
+
+  const getChannelIcon = (c: string) => {
+    if (c?.includes('email')) return <Mail className="h-4 w-4" />;
+    if (c?.includes('reddit') || c?.includes('facebook')) return <MessageCircle className="h-4 w-4" />;
+    return <ExternalLink className="h-4 w-4" />;
+  };
+
+  return (
+    <Card className="overflow-hidden">
+      <Table>
+        <TableHeader>
+          <TableRow>
+            <TableHead className="w-[100px]">Prioridad</TableHead>
+            <TableHead className="w-[120px]">Canal</TableHead>
+            <TableHead>Título / Institución</TableHead>
+            <TableHead className="w-[300px]">Propuesta (Preview)</TableHead>
+            <TableHead className="text-right">Acciones</TableHead>
+          </TableRow>
+        </TableHeader>
+        <TableBody>
+          {fichas.map((ficha) => (
+            <TableRow key={ficha.id} className={ficha.estado === 'contactado' ? 'opacity-60 bg-slate-50' : ''}>
+              <TableCell>
+                <Badge variant="outline" className={getPriorityColor(ficha.prioridad)}>
+                  {ficha.prioridad.toUpperCase()}
+                </Badge>
+              </TableCell>
+              <TableCell>
+                <div className="flex items-center gap-2 text-sm text-slate-600">
+                  {getChannelIcon(ficha.canal_recomendado)}
+                  <span className="capitalize">{ficha.canal_recomendado}</span>
+                </div>
+              </TableCell>
+              <TableCell>
+                <div className="font-medium text-slate-900">{ficha.titulo}</div>
+                <div className="text-sm text-slate-500">{ficha.institucion}</div>
+              </TableCell>
+              <TableCell>
+                <div className="flex items-center gap-2 group">
+                  <div className="truncate max-w-[250px] text-sm text-slate-500 font-mono">
+                    {ficha.propuesta_comunicativa}
+                  </div>
+                  <Button variant="ghost" size="icon" className="h-6 w-6 opacity-0 group-hover:opacity-100" onClick={() => copyToClipboard(ficha.propuesta_comunicativa)}>
+                    <Copy className="h-3 w-3" />
+                  </Button>
+                </div>
+              </TableCell>
+              <TableCell className="text-right">
+                <div className="flex justify-end gap-2">
+                  <Button size="sm" variant="outline" onClick={() => openAction(ficha)}>
+                    Contactar
+                  </Button>
+                  <Button 
+                    size="icon" 
+                    variant={ficha.estado === 'contactado' ? "default" : "ghost"}
+                    className={`h-8 w-8 ${ficha.estado === 'contactado' ? 'bg-green-600 hover:bg-green-700' : 'text-green-600 hover:bg-green-50'}`}
+                    onClick={() => onUpdateStatus(ficha.id, 'contactado')}
+                  >
+                    <CheckCircle className="h-4 w-4" />
+                  </Button>
+                  <Button 
+                    size="icon" 
+                    variant={ficha.estado === 'descartado' ? "default" : "ghost"}
+                    className={`h-8 w-8 ${ficha.estado === 'descartado' ? 'bg-slate-600' : 'text-slate-400 hover:bg-slate-50'}`}
+                    onClick={() => onUpdateStatus(ficha.id, 'descartado')}
+                  >
+                    <XCircle className="h-4 w-4" />
+                  </Button>
+                </div>
+              </TableCell>
+            </TableRow>
+          ))}
+        </TableBody>
+      </Table>
+    </Card>
   );
 }
 
