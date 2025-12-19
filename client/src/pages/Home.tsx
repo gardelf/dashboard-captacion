@@ -11,6 +11,8 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { toast } from "sonner";
 
 export default function Home() {
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [pin, setPin] = useState("");
   const [fichas, setFichas] = useState<Ficha[]>([]);
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState("");
@@ -19,8 +21,52 @@ export default function Home() {
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
 
   useEffect(() => {
-    fetchFichas();
+    const savedAuth = localStorage.getItem("dashboard_auth");
+    if (savedAuth === "true") {
+      setIsAuthenticated(true);
+      fetchFichas();
+    }
   }, []);
+
+  const handleLogin = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (pin === "MADRID2025") {
+      setIsAuthenticated(true);
+      localStorage.setItem("dashboard_auth", "true");
+      fetchFichas();
+      toast.success("Acceso concedido");
+    } else {
+      toast.error("PIN incorrecto");
+    }
+  };
+
+  if (!isAuthenticated) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-slate-50 dark:bg-slate-900 p-4">
+        <Card className="w-full max-w-md">
+          <CardHeader>
+            <CardTitle className="text-center">Acceso Restringido</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <form onSubmit={handleLogin} className="space-y-4">
+              <div className="space-y-2">
+                <Input
+                  type="password"
+                  placeholder="Introduce el PIN de acceso"
+                  value={pin}
+                  onChange={(e) => setPin(e.target.value)}
+                  className="text-center text-lg tracking-widest"
+                />
+              </div>
+              <Button type="submit" className="w-full">
+                Entrar
+              </Button>
+            </form>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
 
   async function fetchFichas() {
     setLoading(true);
