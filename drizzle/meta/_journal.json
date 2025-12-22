@@ -1,0 +1,34 @@
+{
+  "version": "7",
+  "dialect": "mysql",
+  "entries": [
+    {
+      "idx": 0,
+      "version": "5",
+      "when": 1766331928384,
+      "tag": "0000_wakeful_rawhide_kid",
+      "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "5",
+      "when": 1766402322443,
+      "tag": "0001_unknown_salo",
+      "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "5",
+      "when": 1766402339504,
+      "tag": "0002_open_cannonball",
+      "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "5",
+      "when": 1766405745595,
+      "tag": "0003_rainy_amphibian",
+      "breakpoints": true
+    }
+  ]
+}

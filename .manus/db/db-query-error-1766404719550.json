@@ -1,0 +1,8 @@
+{
+  "query": "UPDATE fichas SET institucion = NULL, email = NULL, telefono = NULL, tiene_formulario = 'NO', canal_recomendado = 'web', propuesta_comunicativa = 'Test', procesada = 'SI' WHERE id = 'TEST-20251222-905b130b'",
+  "command": "mysql --batch --raw --column-names --default-character-set=utf8mb4 --host gateway02.us-east-1.prod.aws.tidbcloud.com --port 4000 --user UZtdrFd36x5de9Y.root --database 2n7E7vuKXwNeYhG79mo9uk --execute UPDATE fichas SET institucion = NULL, email = NULL, telefono = NULL, tiene_formulario = 'NO', canal_recomendado = 'web', propuesta_comunicativa = 'Test', procesada = 'SI' WHERE id = 'TEST-20251222-905b130b'",
+  "returncode": 1,
+  "logs": [
+    "ERROR 1292 (22007) at line 1: Truncated incorrect INTEGER value: '?'"
+  ]
+}

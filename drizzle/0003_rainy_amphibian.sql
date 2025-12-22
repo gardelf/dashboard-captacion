@@ -1,0 +1,1 @@
+ALTER TABLE `fichas` MODIFY COLUMN `tiene_formulario` boolean;

@@ -1,0 +1,13 @@
+{
+  "query": "SELECT id, titulo, institucion, email, telefono, tiene_formulario, canal_recomendado, propuesta_comunicativa, procesada FROM fichas WHERE id = 'TEST-20251222-NEW001'",
+  "command": "mysql --batch --raw --column-names --default-character-set=utf8mb4 --host gateway02.us-east-1.prod.aws.tidbcloud.com --port 4000 --user UZtdrFd36x5de9Y.root --database 2n7E7vuKXwNeYhG79mo9uk --execute SELECT id, titulo, institucion, email, telefono, tiene_formulario, canal_recomendado, propuesta_comunicativa, procesada FROM fichas WHERE id = 'TEST-20251222-NEW001'",
+  "rows": [],
+  "messages": [
+    "TEST-20251222-NEW001\tLooking for student housing in Madrid for 2026\tUniversidad Complutense\tNULL\tNULL\t0\treddit\tHola a todos,",
+    "Soy un estudiante internacional que llegará a Madrid en septiembre de 2026 y estoy buscando alojamiento cerca de la Universidad Complutense.",
+    "¿Alguien tiene recomendaciones o información sobre opciones de alojamiento en mi rango de presupuesto? ¡Gracias!\tSI"
+  ],
+  "stdout": "id\ttitulo\tinstitucion\temail\ttelefono\ttiene_formulario\tcanal_recomendado\tpropuesta_comunicativa\tprocesada\nTEST-20251222-NEW001\tLooking for student housing in Madrid for 2026\tUniversidad Complutense\tNULL\tNULL\t0\treddit\tHola a todos,\nSoy un estudiante internacional que llegará a Madrid en septiembre de 2026 y estoy buscando alojamiento cerca de la Universidad Complutense.\n¿Alguien tiene recomendaciones o información sobre opciones de alojamiento en mi rango de presupuesto? ¡Gracias!\tSI\n",
+  "stderr": "",
+  "execution_time_ms": 54
+}

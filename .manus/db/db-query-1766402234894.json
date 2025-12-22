@@ -1,0 +1,9 @@
+{
+  "query": "CREATE TABLE IF NOT EXISTS fichas (\n  id VARCHAR(255) PRIMARY KEY,\n  tipo VARCHAR(50),\n  keyword TEXT,\n  url TEXT NOT NULL,\n  titulo TEXT,\n  snippet TEXT,\n  dominio VARCHAR(255),\n  institucion TEXT,\n  email VARCHAR(255),\n  telefono VARCHAR(50),\n  tiene_formulario BOOLEAN,\n  plataforma_social VARCHAR(50),\n  username VARCHAR(255),\n  subreddit VARCHAR(255),\n  grupo_facebook TEXT,\n  fecha_detectada DATE,\n  prioridad VARCHAR(20),\n  propuesta_comunicativa TEXT,\n  canal_recomendado VARCHAR(50),\n  estado VARCHAR(20),\n  procesada VARCHAR(5),\n  fecha_contacto DATE,\n  fecha_creacion TIMESTAMP DEFAULT CURRENT_TIMESTAMP,\n  ultima_actualizacion TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,\n  UNIQUE KEY unique_url (url(255))\n);",
+  "command": "mysql --batch --raw --column-names --default-character-set=utf8mb4 --host gateway02.us-east-1.prod.aws.tidbcloud.com --port 4000 --user UZtdrFd36x5de9Y.root --database 2n7E7vuKXwNeYhG79mo9uk --execute CREATE TABLE IF NOT EXISTS fichas (\n  id VARCHAR(255) PRIMARY KEY,\n  tipo VARCHAR(50),\n  keyword TEXT,\n  url TEXT NOT NULL,\n  titulo TEXT,\n  snippet TEXT,\n  dominio VARCHAR(255),\n  institucion TEXT,\n  email VARCHAR(255),\n  telefono VARCHAR(50),\n  tiene_formulario BOOLEAN,\n  plataforma_social VARCHAR(50),\n  username VARCHAR(255),\n  subreddit VARCHAR(255),\n  grupo_facebook TEXT,\n  fecha_detectada DATE,\n  prioridad VARCHAR(20),\n  propuesta_comunicativa TEXT,\n  canal_recomendado VARCHAR(50),\n  estado VARCHAR(20),\n  procesada VARCHAR(5),\n  fecha_contacto DATE,\n  fecha_creacion TIMESTAMP DEFAULT CURRENT_TIMESTAMP,\n  ultima_actualizacion TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,\n  UNIQUE KEY unique_url (url(255))\n);",
+  "rows": [],
+  "messages": [],
+  "stdout": "",
+  "stderr": "",
+  "execution_time_ms": 300
+}

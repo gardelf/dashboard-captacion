@@ -1,158 +1,115 @@
 import { useEffect, useState } from "react";
-import { supabase, type Ficha } from "@/lib/supabase";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Loader2, Mail, MessageCircle, ExternalLink, CheckCircle, XCircle, Copy, Search, Filter, LayoutGrid, List } from "lucide-react";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { Badge } from "@/components/ui/badge";
+import { Loader2, Mail, User, ExternalLink, CheckCircle, Copy, MessageCircle } from "lucide-react";
 import { toast } from "sonner";
 
+interface Ficha {
+  id: string;
+  titulo: string | null;
+  snippet: string | null;
+  url: string;
+  institucion: string | null;
+  email: string | null;
+  username: string | null;
+  subreddit: string | null;
+  grupo_facebook: string | null;
+  propuesta_comunicativa: string | null;
+  canal_recomendado: string | null;
+  prioridad: string | null;
+  fecha_creacion: string;
+}
+
 export default function Home() {
-  const [isAuthenticated, setIsAuthenticated] = useState(false);
-  const [pin, setPin] = useState("");
   const [fichas, setFichas] = useState<Ficha[]>([]);
   const [loading, setLoading] = useState(true);
-  const [filter, setFilter] = useState("");
-  const [statusFilter, setStatusFilter] = useState("pendiente");
-  const [priorityFilter, setPriorityFilter] = useState("all");
-  const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
-  const [isSearching, setIsSearching] = useState(false);
+  const [stats, setStats] = useState({ total: 0, pendientes: 0, contactados: 0 });
 
   useEffect(() => {
-    const savedAuth = localStorage.getItem("dashboard_auth");
-    if (savedAuth === "true") {
-      setIsAuthenticated(true);
-      fetchFichas();
-    }
+    fetchFichas();
+    fetchStats();
   }, []);
-
-  const handleLogin = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (pin === "MADRID2025") {
-      setIsAuthenticated(true);
-      localStorage.setItem("dashboard_auth", "true");
-      fetchFichas();
-      toast.success("Acceso concedido");
-    } else {
-      toast.error("PIN incorrecto");
-    }
-  };
-
-  if (!isAuthenticated) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-slate-50 dark:bg-slate-900 p-4">
-        <Card className="w-full max-w-md">
-          <CardHeader>
-            <CardTitle className="text-center">Acceso Restringido</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <form onSubmit={handleLogin} className="space-y-4">
-              <div className="space-y-2">
-                <Input
-                  type="password"
-                  placeholder="Introduce el PIN de acceso"
-                  value={pin}
-                  onChange={(e) => setPin(e.target.value)}
-                  className="text-center text-lg tracking-widest"
-                />
-              </div>
-              <Button type="submit" className="w-full">
-                Entrar
-              </Button>
-            </form>
-          </CardContent>
-        </Card>
-      </div>
-    );
-  }
 
   async function fetchFichas() {
     setLoading(true);
-    const { data, error } = await supabase
-      .from('fichas')
-      .select('*')
-      .order('prioridad', { ascending: true }) // alta (1) -> baja (3) if mapped, but usually string. Let's check sort.
-      .order('created_at', { ascending: false });
-
-    if (error) {
-      toast.error("Error al cargar fichas: " + error.message);
-    } else {
-      setFichas(data as Ficha[]);
-    }
-    setLoading(false);
-  }
-
-  async function handleSearch() {
-    setIsSearching(true);
-    toast.info("Iniciando búsqueda de nuevas fichas...");
-    
     try {
-      // TEMPORAL: Apuntar directamente al sandbox para que funcione la demo
-      // Cuando se despliegue en Render, esto se cambiará por la URL de Render
-      const backendUrl = "https://5000-iyv22b4xp03kckrnqy6xs-807a6cb4.manusvm.computer";
-        
-      const response = await fetch(`${backendUrl}/api/run-search`, {
-        method: 'POST',
-      });
+      const response = await fetch('/api/fichas/pendientes');
+      const data = await response.json();
       
-      if (response.ok) {
-        toast.success("Búsqueda iniciada en segundo plano. Las fichas aparecerán pronto.");
-        // Polling status could be added here
+      if (data.success) {
+        setFichas(data.data);
       } else {
-        const data = await response.json();
-        if (response.status === 409) {
-           toast.warning("Ya hay una búsqueda en curso.");
-        } else {
-           toast.error("Error al iniciar búsqueda: " + data.message);
-        }
+        toast.error('Error al cargar fichas');
       }
     } catch (error) {
-      console.error(error);
-      toast.error("Error de conexión con el servidor de búsqueda");
+      console.error('Error:', error);
+      toast.error('Error de conexión');
     } finally {
-      setIsSearching(false);
+      setLoading(false);
     }
   }
 
-  async function updateStatus(id: string, newStatus: 'contactado' | 'descartado' | 'pendiente') {
-    // Optimistic update
-    setFichas(prev => prev.map(f => f.id === id ? { ...f, estado: newStatus } : f));
-    
-    const { error } = await supabase
-      .from('fichas')
-      .update({ estado: newStatus })
-      .eq('id', id);
-
-    if (error) {
-      toast.error("Error al actualizar estado");
-      // Revert
-      fetchFichas();
-    } else {
-      toast.success(`Ficha marcada como ${newStatus}`);
+  async function fetchStats() {
+    try {
+      const response = await fetch('/api/fichas/stats/summary');
+      const data = await response.json();
+      
+      if (data.success) {
+        setStats({
+          total: parseInt(data.data.total) || 0,
+          pendientes: parseInt(data.data.pendientes) || 0,
+          contactados: parseInt(data.data.contactados) || 0
+        });
+      }
+    } catch (error) {
+      console.error('Error obteniendo stats:', error);
     }
   }
 
-  const filteredFichas = fichas.filter(ficha => {
-    const matchesSearch = 
-      ficha.titulo?.toLowerCase().includes(filter.toLowerCase()) ||
-      ficha.institucion?.toLowerCase().includes(filter.toLowerCase()) ||
-      ficha.canal_recomendado?.toLowerCase().includes(filter.toLowerCase());
-    
-    const matchesStatus = statusFilter === "all" || ficha.estado === statusFilter;
-    const matchesPriority = priorityFilter === "all" || ficha.prioridad === priorityFilter;
+  async function marcarContactada(id: string) {
+    try {
+      const response = await fetch(`/api/fichas/${id}/contactar`, {
+        method: 'PATCH'
+      });
+      
+      const data = await response.json();
+      
+      if (data.success) {
+        toast.success('Ficha marcada como contactada');
+        // Remover de la lista
+        setFichas(prev => prev.filter(f => f.id !== id));
+        // Actualizar stats
+        setStats(prev => ({
+          ...prev,
+          pendientes: prev.pendientes - 1,
+          contactados: prev.contactados + 1
+        }));
+      } else {
+        toast.error('Error al marcar ficha');
+      }
+    } catch (error) {
+      console.error('Error:', error);
+      toast.error('Error de conexión');
+    }
+  }
 
-    return matchesSearch && matchesStatus && matchesPriority;
-  });
+  function copiarTexto(texto: string, tipo: string) {
+    navigator.clipboard.writeText(texto);
+    toast.success(`${tipo} copiado al portapapeles`);
+  }
 
-  const stats = {
-    total: fichas.length,
-    contactados: fichas.filter(f => f.estado === 'contactado').length,
-    pendientes: fichas.filter(f => f.estado === 'pendiente').length,
-    descartados: fichas.filter(f => f.estado === 'descartado').length
-  };
+  function abrirURL(url: string) {
+    window.open(url, '_blank');
+  }
+
+  if (loading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-slate-50 dark:bg-slate-900">
+        <Loader2 className="h-10 w-10 animate-spin text-blue-600" />
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-slate-50 dark:bg-slate-900 p-4 md:p-8">
@@ -161,351 +118,192 @@ export default function Home() {
         {/* Header & Stats */}
         <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
           <div>
-            <h1 className="text-3xl font-bold text-slate-900 dark:text-white">Dashboard Captación</h1>
-            <p className="text-slate-500 dark:text-slate-400">Gestionando {stats.total} oportunidades de estudiantes</p>
+            <h1 className="text-3xl font-bold text-slate-900 dark:text-white">
+              Dashboard Captación Estudiantes
+            </h1>
+            <p className="text-slate-500 dark:text-slate-400">
+              Fichas pendientes de contactar
+            </p>
           </div>
           <div className="flex gap-2">
-            <Card className="p-4 py-2 bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700">
+            <Card className="p-4 py-2 bg-white dark:bg-slate-800">
+              <div className="text-xs text-slate-500 uppercase font-bold">Total</div>
+              <div className="text-2xl font-bold text-slate-900 dark:text-white">{stats.total}</div>
+            </Card>
+            <Card className="p-4 py-2 bg-white dark:bg-slate-800">
               <div className="text-xs text-slate-500 uppercase font-bold">Pendientes</div>
               <div className="text-2xl font-bold text-amber-600">{stats.pendientes}</div>
             </Card>
-            <Card className="p-4 py-2 bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700">
+            <Card className="p-4 py-2 bg-white dark:bg-slate-800">
               <div className="text-xs text-slate-500 uppercase font-bold">Contactados</div>
               <div className="text-2xl font-bold text-green-600">{stats.contactados}</div>
             </Card>
-            <Button 
-              onClick={handleSearch} 
-              disabled={isSearching}
-              className="h-auto py-2 bg-blue-600 hover:bg-blue-700 text-white shadow-sm"
-            >
-              {isSearching ? (
-                <>
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  Buscando...
-                </>
-              ) : (
-                <>
-                  <Search className="mr-2 h-4 w-4" />
-                  Buscar Nuevas Fichas
-                </>
-              )}
-            </Button>
           </div>
         </div>
 
-        {/* Filters */}
-        <Card className="p-4">
-          <div className="flex flex-col md:flex-row gap-4">
-            <div className="relative flex-1">
-              <Search className="absolute left-2 top-2.5 h-4 w-4 text-slate-500" />
-              <Input 
-                placeholder="Buscar por título, institución..." 
-                className="pl-8"
-                value={filter}
-                onChange={(e) => setFilter(e.target.value)}
-              />
+        {/* Fichas */}
+        {fichas.length === 0 ? (
+          <Card className="p-12 text-center">
+            <div className="text-slate-400 dark:text-slate-500">
+              <CheckCircle className="h-16 w-16 mx-auto mb-4" />
+              <h3 className="text-xl font-semibold mb-2">¡Todo al día!</h3>
+              <p>No hay fichas pendientes de contactar</p>
             </div>
-            <Select value={statusFilter} onValueChange={setStatusFilter}>
-              <SelectTrigger className="w-[180px]">
-                <SelectValue placeholder="Estado" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">Todos los estados</SelectItem>
-                <SelectItem value="pendiente">Pendientes</SelectItem>
-                <SelectItem value="contactado">Contactados</SelectItem>
-                <SelectItem value="descartado">Descartados</SelectItem>
-              </SelectContent>
-            </Select>
-            <Select value={priorityFilter} onValueChange={setPriorityFilter}>
-              <SelectTrigger className="w-[180px]">
-                <SelectValue placeholder="Prioridad" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">Todas las prioridades</SelectItem>
-                <SelectItem value="alta">Alta</SelectItem>
-                <SelectItem value="media">Media</SelectItem>
-                <SelectItem value="baja">Baja</SelectItem>
-              </SelectContent>
-            </Select>
-            
-            <div className="flex bg-slate-100 dark:bg-slate-800 p-1 rounded-lg border border-slate-200 dark:border-slate-700">
-              <Button 
-                variant={viewMode === 'grid' ? 'default' : 'ghost'} 
-                size="icon" 
-                className="h-8 w-8"
-                onClick={() => setViewMode('grid')}
-              >
-                <LayoutGrid className="h-4 w-4" />
-              </Button>
-              <Button 
-                variant={viewMode === 'list' ? 'default' : 'ghost'} 
-                size="icon" 
-                className="h-8 w-8"
-                onClick={() => setViewMode('list')}
-              >
-                <List className="h-4 w-4" />
-              </Button>
-            </div>
-          </div>
-        </Card>
-
-        {/* Table */}
-        {loading ? (
-          <div className="flex justify-center py-20">
-            <Loader2 className="h-10 w-10 animate-spin text-blue-600" />
-          </div>
+          </Card>
         ) : (
-          <>
-            {viewMode === 'grid' ? (
-              <div className="grid gap-4">
-                {filteredFichas.map((ficha) => (
-                  <FichaCard key={ficha.id} ficha={ficha} onUpdateStatus={updateStatus} />
-                ))}
-              </div>
-            ) : (
-              <FichaList fichas={filteredFichas} onUpdateStatus={updateStatus} />
-            )}
-            
-            {filteredFichas.length === 0 && (
-              <div className="text-center py-20 text-slate-500">
-                No se encontraron fichas con estos filtros
-              </div>
-            )}
-          </>
+          <div className="grid gap-4">
+            {fichas.map((ficha) => (
+              <Card key={ficha.id} className="overflow-hidden hover:shadow-lg transition-shadow">
+                <CardHeader className="bg-slate-100 dark:bg-slate-800 pb-3">
+                  <div className="flex justify-between items-start gap-4">
+                    <div className="flex-1">
+                      <CardTitle className="text-lg mb-2">
+                        {ficha.titulo || 'Sin título'}
+                      </CardTitle>
+                      {ficha.institucion && (
+                        <Badge variant="secondary" className="mb-2">
+                          {ficha.institucion}
+                        </Badge>
+                      )}
+                    </div>
+                    <div className="flex gap-2">
+                      {ficha.prioridad && (
+                        <Badge 
+                          variant={
+                            ficha.prioridad === 'Alta' ? 'destructive' : 
+                            ficha.prioridad === 'Media' ? 'default' : 
+                            'outline'
+                          }
+                        >
+                          {ficha.prioridad}
+                        </Badge>
+                      )}
+                      {ficha.canal_recomendado && (
+                        <Badge variant="outline" className="capitalize">
+                          {ficha.canal_recomendado}
+                        </Badge>
+                      )}
+                    </div>
+                  </div>
+                </CardHeader>
+
+                <CardContent className="pt-4 space-y-4">
+                  {/* Snippet */}
+                  {ficha.snippet && (
+                    <div className="text-sm text-slate-600 dark:text-slate-400">
+                      {ficha.snippet}
+                    </div>
+                  )}
+
+                  {/* Propuesta Comunicativa */}
+                  {ficha.propuesta_comunicativa && (
+                    <div className="bg-blue-50 dark:bg-blue-950 p-4 rounded-lg border border-blue-200 dark:border-blue-800">
+                      <div className="flex justify-between items-start gap-2 mb-2">
+                        <h4 className="font-semibold text-blue-900 dark:text-blue-100 flex items-center gap-2">
+                          <MessageCircle className="h-4 w-4" />
+                          Propuesta Comunicativa
+                        </h4>
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          onClick={() => copiarTexto(ficha.propuesta_comunicativa!, 'Propuesta')}
+                          className="h-8"
+                        >
+                          <Copy className="h-3 w-3 mr-1" />
+                          Copiar
+                        </Button>
+                      </div>
+                      <p className="text-sm text-blue-800 dark:text-blue-200">
+                        {ficha.propuesta_comunicativa}
+                      </p>
+                    </div>
+                  )}
+
+                  {/* Información de contacto */}
+                  <div className="flex flex-wrap gap-3">
+                    {ficha.email && (
+                      <div className="flex items-center gap-2 bg-slate-100 dark:bg-slate-800 px-3 py-2 rounded-lg">
+                        <Mail className="h-4 w-4 text-slate-500" />
+                        <span className="text-sm font-mono">{ficha.email}</span>
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          onClick={() => copiarTexto(ficha.email!, 'Email')}
+                          className="h-6 w-6 p-0"
+                        >
+                          <Copy className="h-3 w-3" />
+                        </Button>
+                      </div>
+                    )}
+
+                    {ficha.username && (
+                      <div className="flex items-center gap-2 bg-slate-100 dark:bg-slate-800 px-3 py-2 rounded-lg">
+                        <User className="h-4 w-4 text-slate-500" />
+                        <span className="text-sm font-mono">@{ficha.username}</span>
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          onClick={() => copiarTexto(ficha.username!, 'Username')}
+                          className="h-6 w-6 p-0"
+                        >
+                          <Copy className="h-3 w-3" />
+                        </Button>
+                      </div>
+                    )}
+
+                    {ficha.subreddit && (
+                      <div className="flex items-center gap-2 bg-slate-100 dark:bg-slate-800 px-3 py-2 rounded-lg">
+                        <span className="text-sm">r/{ficha.subreddit}</span>
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          onClick={() => copiarTexto(`r/${ficha.subreddit}`, 'Subreddit')}
+                          className="h-6 w-6 p-0"
+                        >
+                          <Copy className="h-3 w-3" />
+                        </Button>
+                      </div>
+                    )}
+
+                    {ficha.grupo_facebook && (
+                      <div className="flex items-center gap-2 bg-slate-100 dark:bg-slate-800 px-3 py-2 rounded-lg">
+                        <span className="text-sm">{ficha.grupo_facebook}</span>
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          onClick={() => copiarTexto(ficha.grupo_facebook!, 'Grupo')}
+                          className="h-6 w-6 p-0"
+                        >
+                          <Copy className="h-3 w-3" />
+                        </Button>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Acciones */}
+                  <div className="flex gap-2 pt-2">
+                    <Button
+                      onClick={() => abrirURL(ficha.url)}
+                      className="flex-1"
+                      variant="outline"
+                    >
+                      <ExternalLink className="h-4 w-4 mr-2" />
+                      Abrir URL
+                    </Button>
+                    <Button
+                      onClick={() => marcarContactada(ficha.id)}
+                      className="flex-1 bg-green-600 hover:bg-green-700 text-white"
+                    >
+                      <CheckCircle className="h-4 w-4 mr-2" />
+                      Marcar como Contactada
+                    </Button>
+                  </div>
+                </CardContent>
+              </Card>
+            ))}
+          </div>
         )}
       </div>
     </div>
-  );
-}
-
-function FichaList({ fichas, onUpdateStatus }: { fichas: Ficha[], onUpdateStatus: (id: string, status: any) => void }) {
-  const copyToClipboard = (text: string) => {
-    navigator.clipboard.writeText(text);
-    toast.success("Copiado al portapapeles");
-  };
-
-  const openAction = (ficha: Ficha) => {
-    if (ficha.canal_recomendado === 'email' && ficha.email) {
-      const subject = encodeURIComponent("Alojamiento para estudiantes internacionales en Madrid");
-      const body = encodeURIComponent(ficha.propuesta_comunicativa);
-      window.open(`https://mail.google.com/mail/?view=cm&fs=1&to=${ficha.email}&su=${subject}&body=${body}`, '_blank');
-    } else if (ficha.canal_recomendado === 'reddit' && ficha.url) {
-      copyToClipboard(ficha.propuesta_comunicativa);
-      window.open(ficha.url, '_blank');
-      toast.info("Propuesta copiada. Pegala en Reddit.");
-    } else if (ficha.canal_recomendado === 'whatsapp' && ficha.telefono) {
-      const text = encodeURIComponent(ficha.propuesta_comunicativa);
-      window.open(`https://wa.me/${ficha.telefono}?text=${text}`, '_blank');
-    } else {
-      copyToClipboard(ficha.propuesta_comunicativa);
-      window.open(ficha.url, '_blank');
-      toast.info("Propuesta copiada. Pegala en el formulario.");
-    }
-  };
-
-  const getPriorityColor = (p: string) => {
-    if (!p) return 'bg-slate-100 text-slate-800 border-slate-200';
-    switch(p.toLowerCase()) {
-      case 'alta': return 'bg-red-100 text-red-800 border-red-200';
-      case 'media': return 'bg-amber-100 text-amber-800 border-amber-200';
-      default: return 'bg-slate-100 text-slate-800 border-slate-200';
-    }
-  };
-
-  const getChannelIcon = (c: string) => {
-    if (!c) return <ExternalLink className="h-4 w-4" />;
-    if (c.includes('email')) return <Mail className="h-4 w-4" />;
-    if (c.includes('reddit') || c.includes('facebook')) return <MessageCircle className="h-4 w-4" />;
-    return <ExternalLink className="h-4 w-4" />;
-  };
-
-  return (
-    <Card className="overflow-hidden">
-      <Table>
-        <TableHeader>
-          <TableRow>
-            <TableHead className="w-[100px]">Prioridad</TableHead>
-            <TableHead className="w-[120px]">Canal</TableHead>
-            <TableHead>Título / Institución</TableHead>
-            <TableHead className="w-[300px]">Propuesta (Preview)</TableHead>
-            <TableHead className="text-right">Acciones</TableHead>
-          </TableRow>
-        </TableHeader>
-        <TableBody>
-          {fichas.map((ficha) => (
-            <TableRow key={ficha.id} className={ficha.estado === 'contactado' ? 'opacity-60 bg-slate-50' : ''}>
-              <TableCell>
-                <Badge variant="outline" className={getPriorityColor(ficha.prioridad)}>
-                  {ficha.prioridad.toUpperCase()}
-                </Badge>
-              </TableCell>
-              <TableCell>
-                <div className="flex items-center gap-2 text-sm text-slate-600">
-                  {getChannelIcon(ficha.canal_recomendado)}
-                  <span className="capitalize">{ficha.canal_recomendado}</span>
-                </div>
-              </TableCell>
-              <TableCell>
-                <div className="font-medium text-slate-900">{ficha.titulo}</div>
-                <div className="text-sm text-slate-500">{ficha.institucion}</div>
-              </TableCell>
-              <TableCell>
-                <div className="flex items-center gap-2 group">
-                  <div className="truncate max-w-[250px] text-sm text-slate-500 font-mono">
-                    {ficha.propuesta_comunicativa}
-                  </div>
-                  <Button variant="ghost" size="icon" className="h-6 w-6 opacity-0 group-hover:opacity-100" onClick={() => copyToClipboard(ficha.propuesta_comunicativa)}>
-                    <Copy className="h-3 w-3" />
-                  </Button>
-                </div>
-              </TableCell>
-              <TableCell className="text-right">
-                <div className="flex justify-end gap-2">
-                  <Button size="sm" variant="outline" onClick={() => openAction(ficha)}>
-                    Contactar
-                  </Button>
-                  <Button 
-                    size="icon" 
-                    variant={ficha.estado === 'contactado' ? "default" : "ghost"}
-                    className={`h-8 w-8 ${ficha.estado === 'contactado' ? 'bg-green-600 hover:bg-green-700' : 'text-green-600 hover:bg-green-50'}`}
-                    onClick={() => onUpdateStatus(ficha.id, 'contactado')}
-                  >
-                    <CheckCircle className="h-4 w-4" />
-                  </Button>
-                  <Button 
-                    size="icon" 
-                    variant={ficha.estado === 'descartado' ? "default" : "ghost"}
-                    className={`h-8 w-8 ${ficha.estado === 'descartado' ? 'bg-slate-600' : 'text-slate-400 hover:bg-slate-50'}`}
-                    onClick={() => onUpdateStatus(ficha.id, 'descartado')}
-                  >
-                    <XCircle className="h-4 w-4" />
-                  </Button>
-                </div>
-              </TableCell>
-            </TableRow>
-          ))}
-        </TableBody>
-      </Table>
-    </Card>
-  );
-}
-
-function FichaCard({ ficha, onUpdateStatus }: { ficha: Ficha, onUpdateStatus: (id: string, status: any) => void }) {
-  const copyToClipboard = (text: string) => {
-    navigator.clipboard.writeText(text);
-    toast.success("Copiado al portapapeles");
-  };
-
-  const openAction = () => {
-    if (ficha.canal_recomendado === 'email' && ficha.email) {
-      const subject = encodeURIComponent("Alojamiento para estudiantes internacionales en Madrid");
-      const body = encodeURIComponent(ficha.propuesta_comunicativa);
-      window.open(`https://mail.google.com/mail/?view=cm&fs=1&to=${ficha.email}&su=${subject}&body=${body}`, '_blank');
-    } else if (ficha.canal_recomendado === 'reddit' && ficha.url) {
-      copyToClipboard(ficha.propuesta_comunicativa);
-      window.open(ficha.url, '_blank');
-      toast.info("Propuesta copiada. Pegala en Reddit.");
-    } else if (ficha.canal_recomendado === 'whatsapp' && ficha.telefono) {
-      const text = encodeURIComponent(ficha.propuesta_comunicativa);
-      window.open(`https://wa.me/${ficha.telefono}?text=${text}`, '_blank');
-    } else {
-      // Default fallback (forms, etc)
-      copyToClipboard(ficha.propuesta_comunicativa);
-      window.open(ficha.url, '_blank');
-      toast.info("Propuesta copiada. Pegala en el formulario.");
-    }
-  };
-
-  const getPriorityColor = (p: string) => {
-    if (!p) return 'bg-slate-100 text-slate-800 border-slate-200';
-    switch(p.toLowerCase()) {
-      case 'alta': return 'bg-red-100 text-red-800 border-red-200';
-      case 'media': return 'bg-amber-100 text-amber-800 border-amber-200';
-      default: return 'bg-slate-100 text-slate-800 border-slate-200';
-    }
-  };
-
-  const getChannelIcon = (c: string) => {
-    if (!c) return <ExternalLink className="h-4 w-4" />;
-    if (c.includes('email')) return <Mail className="h-4 w-4" />;
-    if (c.includes('reddit') || c.includes('facebook')) return <MessageCircle className="h-4 w-4" />;
-    return <ExternalLink className="h-4 w-4" />;
-  };
-
-  return (
-    <Card className={`transition-all hover:shadow-md ${ficha.estado === 'contactado' ? 'opacity-60 bg-slate-50' : 'bg-white'}`}>
-      <CardContent className="p-6">
-        <div className="flex flex-col md:flex-row gap-6">
-          
-          {/* Left: Info */}
-          <div className="flex-1 space-y-3">
-            <div className="flex items-center gap-2">
-              <Badge variant="outline" className={getPriorityColor(ficha.prioridad)}>
-                {(ficha.prioridad || "N/A").toUpperCase()}
-              </Badge>
-              <Badge variant="secondary" className="flex items-center gap-1">
-                {getChannelIcon(ficha.canal_recomendado)}
-                {ficha.canal_recomendado || "Desconocido"}
-              </Badge>
-              <span className="text-xs text-slate-400 font-mono">{ficha.id.split('-').pop()}</span>
-            </div>
-            
-            <h3 className="text-lg font-semibold text-slate-900 leading-tight">
-              {ficha.titulo || "Sin título"}
-            </h3>
-            <p className="text-sm text-slate-600 font-medium">
-              {ficha.institucion || "Institución desconocida"}
-            </p>
-            
-            {ficha.timing_razon && (
-              <div className="text-xs bg-blue-50 text-blue-700 p-2 rounded border border-blue-100">
-                💡 {ficha.timing_razon}
-              </div>
-            )}
-          </div>
-
-          {/* Middle: Proposal */}
-          <div className="flex-1 bg-slate-50 p-3 rounded border border-slate-100 text-sm text-slate-600 relative group">
-            <div className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity">
-              <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => copyToClipboard(ficha.propuesta_comunicativa)}>
-                <Copy className="h-3 w-3" />
-              </Button>
-            </div>
-            <p className="whitespace-pre-wrap line-clamp-4 hover:line-clamp-none transition-all">
-              {ficha.propuesta_comunicativa || "Sin propuesta comunicativa generada."}
-            </p>
-          </div>
-
-          {/* Right: Actions */}
-          <div className="flex flex-row md:flex-col gap-2 justify-center min-w-[140px]">
-            <Button 
-              className="w-full bg-blue-600 hover:bg-blue-700 text-white shadow-sm" 
-              onClick={openAction}
-            >
-              {getChannelIcon(ficha.canal_recomendado)}
-              <span className="ml-2">Contactar</span>
-            </Button>
-            
-            <div className="flex gap-2">
-              <Button 
-                variant={ficha.estado === 'contactado' ? "default" : "outline"}
-                className={`flex-1 ${ficha.estado === 'contactado' ? 'bg-green-600 hover:bg-green-700' : 'text-green-600 border-green-200 hover:bg-green-50'}`}
-                onClick={() => onUpdateStatus(ficha.id, 'contactado')}
-              >
-                <CheckCircle className="h-4 w-4" />
-              </Button>
-              <Button 
-                variant={ficha.estado === 'descartado' ? "default" : "outline"}
-                className={`flex-1 ${ficha.estado === 'descartado' ? 'bg-slate-600' : 'text-slate-400 border-slate-200 hover:bg-slate-50'}`}
-                onClick={() => onUpdateStatus(ficha.id, 'descartado')}
-              >
-                <XCircle className="h-4 w-4" />
-              </Button>
-            </div>
-          </div>
-
-        </div>
-      </CardContent>
-    </Card>
   );
 }

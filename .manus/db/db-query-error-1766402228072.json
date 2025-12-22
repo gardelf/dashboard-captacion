@@ -1,0 +1,8 @@
+{
+  "query": "CREATE TABLE IF NOT EXISTS fichas (\n  id TEXT PRIMARY KEY,\n  tipo TEXT,\n  keyword TEXT,\n  url TEXT NOT NULL UNIQUE,\n  titulo TEXT,\n  snippet TEXT,\n  dominio TEXT,\n  institucion TEXT,\n  email TEXT,\n  telefono TEXT,\n  tiene_formulario BOOLEAN,\n  plataforma_social TEXT,\n  username TEXT,\n  subreddit TEXT,\n  grupo_facebook TEXT,\n  fecha_detectada DATE,\n  prioridad TEXT,\n  propuesta_comunicativa TEXT,\n  canal_recomendado TEXT,\n  estado TEXT DEFAULT 'pendiente',\n  procesada TEXT DEFAULT 'NO',\n  fecha_contacto DATE,\n  fecha_creacion TIMESTAMP DEFAULT CURRENT_TIMESTAMP,\n  ultima_actualizacion TIMESTAMP DEFAULT CURRENT_TIMESTAMP\n);",
+  "command": "mysql --batch --raw --column-names --default-character-set=utf8mb4 --host gateway02.us-east-1.prod.aws.tidbcloud.com --port 4000 --user UZtdrFd36x5de9Y.root --database 2n7E7vuKXwNeYhG79mo9uk --execute CREATE TABLE IF NOT EXISTS fichas (\n  id TEXT PRIMARY KEY,\n  tipo TEXT,\n  keyword TEXT,\n  url TEXT NOT NULL UNIQUE,\n  titulo TEXT,\n  snippet TEXT,\n  dominio TEXT,\n  institucion TEXT,\n  email TEXT,\n  telefono TEXT,\n  tiene_formulario BOOLEAN,\n  plataforma_social TEXT,\n  username TEXT,\n  subreddit TEXT,\n  grupo_facebook TEXT,\n  fecha_detectada DATE,\n  prioridad TEXT,\n  propuesta_comunicativa TEXT,\n  canal_recomendado TEXT,\n  estado TEXT DEFAULT 'pendiente',\n  procesada TEXT DEFAULT 'NO',\n  fecha_contacto DATE,\n  fecha_creacion TIMESTAMP DEFAULT CURRENT_TIMESTAMP,\n  ultima_actualizacion TIMESTAMP DEFAULT CURRENT_TIMESTAMP\n);",
+  "returncode": 1,
+  "logs": [
+    "ERROR 1101 (42000) at line 1: BLOB/TEXT/JSON column 'estado' can't have a default value"
+  ]
+}

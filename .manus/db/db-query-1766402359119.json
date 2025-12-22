@@ -1,0 +1,9 @@
+{
+  "query": "CREATE TABLE IF NOT EXISTS `fichas` (\n\t`id` varchar(64) NOT NULL,\n\t`tipo` text,\n\t`keyword` text,\n\t`url` text NOT NULL,\n\t`titulo` text,\n\t`snippet` text,\n\t`dominio` text,\n\t`institucion` text,\n\t`email` text,\n\t`telefono` text,\n\t`tiene_formulario` text,\n\t`plataforma_social` text,\n\t`username` text,\n\t`subreddit` text,\n\t`grupo_facebook` text,\n\t`fecha_detectada` timestamp NULL,\n\t`prioridad` text,\n\t`propuesta_comunicativa` text,\n\t`canal_recomendado` text,\n\t`estado` varchar(32) DEFAULT 'pendiente',\n\t`procesada` varchar(8) DEFAULT 'NO',\n\t`fecha_contacto` timestamp NULL,\n\t`fecha_creacion` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,\n\t`ultima_actualizacion` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,\n\tCONSTRAINT `fichas_id` PRIMARY KEY(`id`)\n)",
+  "command": "mysql --batch --raw --column-names --default-character-set=utf8mb4 --host gateway02.us-east-1.prod.aws.tidbcloud.com --port 4000 --user UZtdrFd36x5de9Y.root --database 2n7E7vuKXwNeYhG79mo9uk --execute CREATE TABLE IF NOT EXISTS `fichas` (\n\t`id` varchar(64) NOT NULL,\n\t`tipo` text,\n\t`keyword` text,\n\t`url` text NOT NULL,\n\t`titulo` text,\n\t`snippet` text,\n\t`dominio` text,\n\t`institucion` text,\n\t`email` text,\n\t`telefono` text,\n\t`tiene_formulario` text,\n\t`plataforma_social` text,\n\t`username` text,\n\t`subreddit` text,\n\t`grupo_facebook` text,\n\t`fecha_detectada` timestamp NULL,\n\t`prioridad` text,\n\t`propuesta_comunicativa` text,\n\t`canal_recomendado` text,\n\t`estado` varchar(32) DEFAULT 'pendiente',\n\t`procesada` varchar(8) DEFAULT 'NO',\n\t`fecha_contacto` timestamp NULL,\n\t`fecha_creacion` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,\n\t`ultima_actualizacion` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,\n\tCONSTRAINT `fichas_id` PRIMARY KEY(`id`)\n)",
+  "rows": [],
+  "messages": [],
+  "stdout": "",
+  "stderr": "",
+  "execution_time_ms": 69
+}

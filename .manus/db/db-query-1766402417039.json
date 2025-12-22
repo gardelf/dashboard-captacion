@@ -1,0 +1,18 @@
+{
+  "query": "SELECT id, titulo, url, estado, procesada, fecha_creacion FROM fichas ORDER BY fecha_creacion DESC LIMIT 3",
+  "command": "mysql --batch --raw --column-names --default-character-set=utf8mb4 --host gateway02.us-east-1.prod.aws.tidbcloud.com --port 4000 --user UZtdrFd36x5de9Y.root --database 2n7E7vuKXwNeYhG79mo9uk --execute SELECT id, titulo, url, estado, procesada, fecha_creacion FROM fichas ORDER BY fecha_creacion DESC LIMIT 3",
+  "rows": [
+    {
+      "id": "TEST-20251222-905b130b",
+      "titulo": "Ficha de Prueba PostgreSQL Local",
+      "url": "https://test-db-03bcb24f.com",
+      "estado": "pendiente",
+      "procesada": "NO",
+      "fecha_creacion": "2025-12-22 11:20:12"
+    }
+  ],
+  "messages": [],
+  "stdout": "id\ttitulo\turl\testado\tprocesada\tfecha_creacion\nTEST-20251222-905b130b\tFicha de Prueba PostgreSQL Local\thttps://test-db-03bcb24f.com\tpendiente\tNO\t2025-12-22 11:20:12\n",
+  "stderr": "",
+  "execution_time_ms": 51
+}

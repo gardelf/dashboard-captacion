@@ -1,0 +1,18 @@
+{
+  "query": "SHOW COLUMNS FROM fichas WHERE Field = 'tiene_formulario'",
+  "command": "mysql --batch --raw --column-names --default-character-set=utf8mb4 --host gateway02.us-east-1.prod.aws.tidbcloud.com --port 4000 --user UZtdrFd36x5de9Y.root --database 2n7E7vuKXwNeYhG79mo9uk --execute SHOW COLUMNS FROM fichas WHERE Field = 'tiene_formulario'",
+  "rows": [
+    {
+      "Field": "tiene_formulario",
+      "Type": "tinyint(1)",
+      "Null": "YES",
+      "Key": "",
+      "Default": "NULL",
+      "Extra": ""
+    }
+  ],
+  "messages": [],
+  "stdout": "Field\tType\tNull\tKey\tDefault\tExtra\ntiene_formulario\ttinyint(1)\tYES\t\tNULL\t\n",
+  "stderr": "",
+  "execution_time_ms": 50
+}
