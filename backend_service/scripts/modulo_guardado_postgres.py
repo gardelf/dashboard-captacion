@@ -7,9 +7,17 @@ import os
 import psycopg2
 from datetime import datetime
 import hashlib
+from modulo_lectura_sheets import leer_claves_desde_sheets
 
-# URL de PostgreSQL de Render
-RENDER_DATABASE_URL = "postgresql://dashboard_captacion_db_user:zCQusHpUln7PINbsqKY3uedDk1tOjcBi@dpg-d54jlsdactks73agf7b0-a.frankfurt-postgres.render.com/dashboard_captacion_db"
+# Cargar configuración desde Google Sheets
+_config = None
+
+def _get_config():
+    """Obtiene configuración (usa cache)"""
+    global _config
+    if _config is None:
+        _config = leer_claves_desde_sheets()
+    return _config
 
 def generar_id_ficha(url):
     """Genera un ID único para una ficha"""
@@ -17,13 +25,81 @@ def generar_id_ficha(url):
     hash_url = hashlib.md5(url.encode()).hexdigest()[:8]
     return f"RND-{timestamp}-{hash_url}"
 
+def es_institucional(ficha):
+    """
+    Determina si una ficha es de una página institucional.
+    Criterios:
+    - Dominio termina en .edu, .ac.uk, .edu.es, .edu.au, etc.
+    - URL contiene: /admissions/, /programs/, /housing/, /international/, /students/
+    - Título contiene: University, Business School, College, Institute, Admissions
+    """
+    url = ficha.get('url', '').lower()
+    dominio = ficha.get('dominio', '').lower()
+    titulo = ficha.get('titulo', '').lower()
+    
+    # Dominios educativos
+    dominios_edu = ['.edu', '.ac.uk', '.edu.es', '.edu.au', '.ac.nz', '.edu.mx']
+    if any(dominio.endswith(ext) for ext in dominios_edu):
+        return True
+    
+    # URLs institucionales
+    keywords_url = ['/admissions/', '/programs/', '/housing/', '/international/', '/students/', '/study-abroad/']
+    if any(keyword in url for keyword in keywords_url):
+        return True
+    
+    # Títulos institucionales
+    keywords_titulo = ['university', 'business school', 'college', 'institute', 'admissions', 'study abroad']
+    if any(keyword in titulo for keyword in keywords_titulo):
+        return True
+    
+    return False
+
+def es_red_social(ficha):
+    """
+    Determina si una ficha es de una red social.
+    Redes sociales: reddit, facebook, linkedin, twitter/x, instagram
+    """
+    dominio = ficha.get('dominio', '').lower()
+    redes_sociales = ['reddit.com', 'facebook.com', 'linkedin.com', 'twitter.com', 'x.com', 'instagram.com']
+    
+    return any(red in dominio for red in redes_sociales)
+
+def debe_guardar_ficha(ficha):
+    """
+    Determina si una ficha debe guardarse según las reglas de filtrado.
+    
+    Regla:
+    - Si es red social → SIEMPRE guardar
+    - Si es institucional Y (NO tiene email Y NO tiene formulario) → NO guardar
+    - En cualquier otro caso → Guardar
+    """
+    # Redes sociales siempre se guardan
+    if es_red_social(ficha):
+        return True, "Red social"
+    
+    # Si no es institucional, guardar
+    if not es_institucional(ficha):
+        return True, "No institucional"
+    
+    # Es institucional: verificar email y formulario
+    tiene_email = ficha.get('email') and ficha.get('email').strip()
+    tiene_formulario = ficha.get('tiene_formulario') == True
+    
+    # Si NO tiene email Y NO tiene formulario → NO guardar
+    if not tiene_email and not tiene_formulario:
+        return False, "Institucional sin email ni formulario"
+    
+    # En cualquier otro caso, guardar
+    return True, "Institucional con contacto"
+
 def verificar_duplicado(url):
     """
     Consulta si una URL ya existe en la tabla 'fichas'.
     Returns: True si existe, False si es nueva.
     """
+    config = _get_config()
     try:
-        conn = psycopg2.connect(RENDER_DATABASE_URL)
+        conn = psycopg2.connect(config['DATABASE_URL'])
         cursor = conn.cursor()
         
         cursor.execute("SELECT id FROM fichas WHERE url = %s LIMIT 1", (url,))
@@ -52,10 +128,19 @@ def guardar_fichas(fichas):
 
     print(f"💾 Iniciando guardado de {len(fichas)} fichas en PostgreSQL (Render)...")
 
+    filtradas = 0
+    
     for ficha in fichas:
         url = ficha.get('url')
         
-        # 1. Verificar duplicado
+        # 1. Aplicar filtro institucional
+        debe_guardar, razon = debe_guardar_ficha(ficha)
+        if not debe_guardar:
+            print(f"  🚫 Filtrada ({razon}): {url[:50]}...")
+            filtradas += 1
+            continue
+        
+        # 2. Verificar duplicado
         if verificar_duplicado(url):
             print(f"  ⏭️ Duplicado ignorado: {url[:50]}...")
             duplicadas += 1
@@ -63,7 +148,8 @@ def guardar_fichas(fichas):
 
         # 2. Insertar en PostgreSQL
         try:
-            conn = psycopg2.connect(RENDER_DATABASE_URL)
+            config = _get_config()
+            conn = psycopg2.connect(config['DATABASE_URL'])
             cursor = conn.cursor()
             
             # Generar ID si no existe
@@ -120,6 +206,7 @@ def guardar_fichas(fichas):
 
     print(f"\n📊 RESUMEN GUARDADO")
     print(f"  ✅ Nuevas: {guardadas}")
+    print(f"  🚫 Filtradas: {filtradas}")
     print(f"  ⏭️ Duplicadas: {duplicadas}")
     print(f"  ❌ Errores: {errores}")
     

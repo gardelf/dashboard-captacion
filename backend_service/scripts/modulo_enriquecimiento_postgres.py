@@ -8,19 +8,23 @@ import psycopg2
 import requests
 import json
 import os
+from modulo_lectura_sheets import leer_claves_desde_sheets
 
-# Configuración
-RENDER_DATABASE_URL = "postgresql://dashboard_captacion_db_user:zCQusHpUln7PINbsqKY3uedDk1tOjcBi@dpg-d54jlsdactks73agf7b0-a.frankfurt-postgres.render.com/dashboard_captacion_db"
-OPENAI_API_KEY = "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"
+# Cargar configuración desde Google Sheets
+_config = None
 
-# Google Sheets
-SHEET_ID = '1-6e0U1SATcgs2V8u2fOoDoKIrLjzwJi8GxJtUwy9t_U'
-GOOGLE_API_KEY = os.environ.get('GOOGLE_API_KEY', 'AIzaSyBk5KghTy3GkOMbCdZDcduaeyrQaaP_KcA')
+def _get_config():
+    """Obtiene configuración (usa cache)"""
+    global _config
+    if _config is None:
+        _config = leer_claves_desde_sheets()
+    return _config
 
 def leer_prompt_desde_sheet():
     """Lee el prompt de ChatGPT desde Google Sheets"""
+    config = _get_config()
     try:
-        url = f"https://sheets.googleapis.com/v4/spreadsheets/{SHEET_ID}/values/Prompt_ChatGPT!B9?key={GOOGLE_API_KEY}"
+        url = f"https://sheets.googleapis.com/v4/spreadsheets/{config['SHEET_ID']}/values/Prompt_ChatGPT!A7?key={config['GOOGLE_API_KEY']}"
         response = requests.get(url, timeout=10)
         
         if response.status_code == 200:
@@ -41,21 +45,32 @@ def leer_prompt_desde_sheet():
         print(f"⚠️ Error accediendo a Google Sheet: {e}")
         return None
 
-def leer_fichas_pendientes(limite=10):
-    """Lee fichas no procesadas desde PostgreSQL"""
+def obtener_fichas_pendientes(limite=5):
+    """Obtiene fichas pendientes de enriquecer desde PostgreSQL"""
+    config = _get_config()
     try:
-        conn = psycopg2.connect(RENDER_DATABASE_URL)
+        conn = psycopg2.connect(config['DATABASE_URL'])
         cursor = conn.cursor()
         
-        cursor.execute(f"""
-            SELECT id, tipo, keyword, url, titulo, snippet, dominio,
-                   institucion, email, telefono, plataforma_social, 
-                   username, subreddit, grupo_facebook
-            FROM fichas 
-            WHERE procesada = 'NO' 
-            ORDER BY fecha_creacion ASC 
-            LIMIT {limite}
-        """)
+        if limite is None:
+            cursor.execute("""
+                SELECT id, tipo, keyword, url, titulo, snippet, dominio,
+                       institucion, email, telefono, plataforma_social, 
+                       username, subreddit, grupo_facebook
+                FROM fichas 
+                WHERE procesada = 'NO' 
+                ORDER BY fecha_creacion ASC
+            """)
+        else:
+            cursor.execute(f"""
+                SELECT id, tipo, keyword, url, titulo, snippet, dominio,
+                       institucion, email, telefono, plataforma_social, 
+                       username, subreddit, grupo_facebook
+                FROM fichas 
+                WHERE procesada = 'NO' 
+                ORDER BY fecha_creacion ASC 
+                LIMIT {limite}
+            """)
         
         columnas = [desc[0] for desc in cursor.description]
         fichas = []
@@ -73,11 +88,15 @@ def leer_fichas_pendientes(limite=10):
         print(f"❌ Error leyendo fichas: {e}")
         return []
 
-def enriquecer_con_chatgpt(ficha, api_key, prompt_system):
+def enriquecer_con_chatgpt(ficha, prompt_system, api_key=None):
     """Enriquece una ficha usando ChatGPT con el prompt del Google Sheet"""
+    if api_key is None:
+        config = _get_config()
+        api_key = config['OPENAI_API_KEY']
     
-    # Construir el JSON de la ficha para enviar a ChatGPT
+    # Construir el JSON de la ficha para enviar a ChatGPT (TODOS LOS CAMPOS)
     ficha_json = {
+        "id": ficha.get('id'),
         "tipo": ficha.get('tipo'),
         "keyword": ficha.get('keyword'),
         "url": ficha.get('url'),
@@ -87,10 +106,17 @@ def enriquecer_con_chatgpt(ficha, api_key, prompt_system):
         "institucion": ficha.get('institucion'),
         "email": ficha.get('email'),
         "telefono": ficha.get('telefono'),
+        "tiene_formulario": ficha.get('tiene_formulario'),
         "plataforma_social": ficha.get('plataforma_social'),
         "username": ficha.get('username'),
         "subreddit": ficha.get('subreddit'),
-        "grupo_facebook": ficha.get('grupo_facebook')
+        "grupo_facebook": ficha.get('grupo_facebook'),
+        "fecha_detectada": str(ficha.get('fecha_detectada')) if ficha.get('fecha_detectada') else None,
+        "estado": ficha.get('estado'),
+        "procesada": ficha.get('procesada'),
+        "fecha_contacto": str(ficha.get('fecha_contacto')) if ficha.get('fecha_contacto') else None,
+        "fecha_creacion": str(ficha.get('fecha_creacion')) if ficha.get('fecha_creacion') else None,
+        "ultima_actualizacion": str(ficha.get('ultima_actualizacion')) if ficha.get('ultima_actualizacion') else None
     }
     
     # Mensaje del usuario: el JSON de la ficha
@@ -141,8 +167,9 @@ def enriquecer_con_chatgpt(ficha, api_key, prompt_system):
 
 def actualizar_ficha(ficha_id, datos_enriquecidos):
     """Actualiza una ficha en PostgreSQL con datos enriquecidos"""
+    config = _get_config()
     try:
-        conn = psycopg2.connect(RENDER_DATABASE_URL)
+        conn = psycopg2.connect(config['DATABASE_URL'])
         cursor = conn.cursor()
         
         cursor.execute("""
@@ -173,11 +200,16 @@ def actualizar_ficha(ficha_id, datos_enriquecidos):
         print(f"  ❌ Error actualizando ficha: {e}")
         return False
 
-def enriquecer_fichas(openai_key=None, limite=10):
+def enriquecer_fichas(openai_key=None, limite=None):
     """
     Función principal: Lee fichas no procesadas y las enriquece con ChatGPT.
     """
-    api_key = openai_key or OPENAI_API_KEY
+    config = _get_config()
+    
+    api_key = openai_key or config['OPENAI_API_KEY']
+    
+    if limite is None:
+        limite = config['LIMITE_ENRIQUECIMIENTO']
     
     print("🤖 INICIANDO ENRIQUECIMIENTO CON CHATGPT")
     print("=" * 60)
@@ -191,7 +223,7 @@ def enriquecer_fichas(openai_key=None, limite=10):
     
     # Conectar a PostgreSQL
     try:
-        conn = psycopg2.connect(RENDER_DATABASE_URL)
+        conn = psycopg2.connect(config['DATABASE_URL'])
         conn.close()
         print("✅ Conectado a PostgreSQL (Render)")
     except Exception as e:
@@ -206,7 +238,7 @@ def enriquecer_fichas(openai_key=None, limite=10):
     print("✅ API Key de OpenAI configurada")
     
     # Leer fichas pendientes
-    fichas = leer_fichas_pendientes(limite)
+    fichas = obtener_fichas_pendientes(limite)
     
     if not fichas:
         print("📋 No hay fichas pendientes de procesar")
@@ -224,7 +256,7 @@ def enriquecer_fichas(openai_key=None, limite=10):
         print(f"  URL: {ficha['url'][:50]}...")
         
         # Enriquecer con ChatGPT
-        datos = enriquecer_con_chatgpt(ficha, api_key, prompt_system)
+        datos = enriquecer_con_chatgpt(ficha, prompt_system, api_key)
         
         if datos:
             # Actualizar en PostgreSQL

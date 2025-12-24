@@ -8,6 +8,48 @@ import pool, { type Ficha } from '../db/postgres';
 const router = Router();
 
 /**
+ * GET /api/fichas
+ * Obtiene todas las fichas con estadísticas
+ */
+router.get('/', async (req, res) => {
+  try {
+    // Obtener todas las fichas pendientes
+    const fichasResult = await pool.query<Ficha>(`
+      SELECT * FROM fichas 
+      WHERE estado = 'pendiente' 
+      ORDER BY 
+        CASE prioridad 
+          WHEN 'Alta' THEN 1
+          WHEN 'Media' THEN 2
+          WHEN 'Baja' THEN 3
+          ELSE 4
+        END,
+        fecha_creacion DESC
+    `);
+    
+    // Obtener estadísticas
+    const statsResult = await pool.query(`
+      SELECT 
+        COUNT(*)::int as total,
+        COUNT(*) FILTER (WHERE estado = 'pendiente')::int as pendientes,
+        COUNT(*) FILTER (WHERE estado = 'contactado')::int as contactados
+      FROM fichas
+    `);
+    
+    res.json({
+      fichas: fichasResult.rows,
+      stats: statsResult.rows[0]
+    });
+  } catch (error: any) {
+    console.error('Error obteniendo fichas:', error);
+    res.status(500).json({
+      error: 'Error al obtener fichas',
+      message: error.message
+    });
+  }
+});
+
+/**
  * GET /api/fichas/pendientes
  * Obtiene todas las fichas pendientes (no contactadas)
  */
@@ -76,10 +118,10 @@ router.get('/:id', async (req, res) => {
 });
 
 /**
- * PATCH /api/fichas/:id/contactar
+ * POST /api/fichas/:id/contactar
  * Marca una ficha como contactada
  */
-router.patch('/:id/contactar', async (req, res) => {
+router.post('/:id/contactar', async (req, res) => {
   try {
     const { id } = req.params;
     
@@ -116,10 +158,10 @@ router.patch('/:id/contactar', async (req, res) => {
 });
 
 /**
- * PATCH /api/fichas/:id/descartar
+ * POST /api/fichas/:id/descartar
  * Marca una ficha como descartada
  */
-router.patch('/:id/descartar', async (req, res) => {
+router.post('/:id/descartar', async (req, res) => {
   try {
     const { id } = req.params;
     

@@ -1,97 +1,153 @@
-import { useEffect, useState } from "react";
-import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
-import { Loader2, Mail, User, ExternalLink, CheckCircle, Copy, MessageCircle } from "lucide-react";
-import { toast } from "sonner";
+import { useState, useEffect } from 'react';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
+import { 
+  ExternalLink, 
+  Copy, 
+  CheckCircle, 
+  Loader2,
+  Mail,
+  User,
+  Calendar,
+  Building2,
+  MessageCircle,
+  Hash,
+  Globe
+} from 'lucide-react';
+import { toast } from 'sonner';
 
 interface Ficha {
   id: string;
-  titulo: string | null;
-  snippet: string | null;
+  tipo: string;
+  keyword: string;
   url: string;
+  titulo: string;
+  snippet: string;
+  dominio: string;
   institucion: string | null;
   email: string | null;
+  telefono: string | null;
+  tiene_formulario: boolean | null;
+  plataforma_social: string;
   username: string | null;
   subreddit: string | null;
   grupo_facebook: string | null;
+  fecha_detectada: string | null;
+  prioridad: string | null;
   propuesta_comunicativa: string | null;
   canal_recomendado: string | null;
-  prioridad: string | null;
+  estado: string;
+  procesada: string;
+  fecha_contacto: string | null;
   fecha_creacion: string;
+  ultima_actualizacion: string;
+}
+
+interface Stats {
+  total: number;
+  pendientes: number;
+  contactados: number;
 }
 
 export default function Home() {
   const [fichas, setFichas] = useState<Ficha[]>([]);
+  const [stats, setStats] = useState<Stats>({ total: 0, pendientes: 0, contactados: 0 });
   const [loading, setLoading] = useState(true);
-  const [stats, setStats] = useState({ total: 0, pendientes: 0, contactados: 0 });
 
   useEffect(() => {
-    fetchFichas();
-    fetchStats();
+    cargarFichas();
   }, []);
 
-  async function fetchFichas() {
-    setLoading(true);
+  async function cargarFichas() {
     try {
-      const response = await fetch('/api/fichas/pendientes');
-      const data = await response.json();
-      
-      if (data.success) {
-        setFichas(data.data);
-      } else {
-        toast.error('Error al cargar fichas');
+      const response = await fetch('/api/fichas');
+      if (!response.ok) {
+        throw new Error('Error al cargar fichas');
       }
+      const data = await response.json();
+      setFichas(data.fichas || []);
+      setStats(data.stats || { total: 0, pendientes: 0, contactados: 0 });
     } catch (error) {
       console.error('Error:', error);
-      toast.error('Error de conexión');
+      toast.error(`Error al cargar fichas: ${error instanceof Error ? error.message : 'Error desconocido'}`);
     } finally {
       setLoading(false);
-    }
-  }
-
-  async function fetchStats() {
-    try {
-      const response = await fetch('/api/fichas/stats/summary');
-      const data = await response.json();
-      
-      if (data.success) {
-        setStats({
-          total: parseInt(data.data.total) || 0,
-          pendientes: parseInt(data.data.pendientes) || 0,
-          contactados: parseInt(data.data.contactados) || 0
-        });
-      }
-    } catch (error) {
-      console.error('Error obteniendo stats:', error);
     }
   }
 
   async function marcarContactada(id: string) {
     try {
       const response = await fetch(`/api/fichas/${id}/contactar`, {
-        method: 'PATCH'
+        method: 'POST',
       });
       
-      const data = await response.json();
-      
-      if (data.success) {
-        toast.success('Ficha marcada como contactada');
-        // Remover de la lista
-        setFichas(prev => prev.filter(f => f.id !== id));
-        // Actualizar stats
-        setStats(prev => ({
-          ...prev,
-          pendientes: prev.pendientes - 1,
-          contactados: prev.contactados + 1
-        }));
-      } else {
-        toast.error('Error al marcar ficha');
+      if (!response.ok) {
+        throw new Error('Error al marcar como contactada');
       }
+      
+      toast.success('Ficha marcada como contactada');
+      cargarFichas();
     } catch (error) {
       console.error('Error:', error);
-      toast.error('Error de conexión');
+      toast.error('Error al actualizar el estado');
     }
+  }
+
+  async function descartarFicha(id: string) {
+    try {
+      const response = await fetch(`/api/fichas/${id}/descartar`, {
+        method: 'POST',
+      });
+      
+      if (!response.ok) {
+        throw new Error('Error al descartar ficha');
+      }
+      
+      toast.success('Ficha descartada');
+      cargarFichas();
+    } catch (error) {
+      console.error('Error:', error);
+      toast.error('Error al descartar ficha');
+    }
+  }
+
+  async function descartarTodasBajas() {
+    const fichasBajas = fichas.filter(f => 
+      f.prioridad?.toLowerCase() === 'baja' && f.estado === 'pendiente'
+    );
+    
+    if (fichasBajas.length === 0) {
+      toast.info('No hay fichas de prioridad baja pendientes');
+      return;
+    }
+    
+    const confirmacion = confirm(`¿Descartar ${fichasBajas.length} ficha(s) de prioridad baja?`);
+    if (!confirmacion) return;
+    
+    toast.info(`Descartando ${fichasBajas.length} fichas...`);
+    
+    let exitosas = 0;
+    let fallidas = 0;
+    
+    for (const ficha of fichasBajas) {
+      try {
+        const response = await fetch(`/api/fichas/${ficha.id}/descartar`, {
+          method: 'POST',
+        });
+        
+        if (response.ok) {
+          exitosas++;
+        } else {
+          fallidas++;
+        }
+      } catch (error) {
+        fallidas++;
+      }
+    }
+    
+    toast.success(`✅ ${exitosas} fichas descartadas${fallidas > 0 ? ` (❌ ${fallidas} errores)` : ''}`);
+    cargarFichas();
   }
 
   function copiarTexto(texto: string, tipo: string) {
@@ -101,6 +157,19 @@ export default function Home() {
 
   function abrirURL(url: string) {
     window.open(url, '_blank');
+  }
+
+  function formatearFecha(fecha: string | null): string {
+    if (!fecha) return 'N/A';
+    try {
+      return new Date(fecha).toLocaleDateString('es-ES', {
+        year: 'numeric',
+        month: 'short',
+        day: 'numeric'
+      });
+    } catch {
+      return fecha;
+    }
   }
 
   if (loading) {
@@ -125,19 +194,33 @@ export default function Home() {
               Fichas pendientes de contactar
             </p>
           </div>
-          <div className="flex gap-2">
-            <Card className="p-4 py-2 bg-white dark:bg-slate-800">
-              <div className="text-xs text-slate-500 uppercase font-bold">Total</div>
-              <div className="text-2xl font-bold text-slate-900 dark:text-white">{stats.total}</div>
-            </Card>
-            <Card className="p-4 py-2 bg-white dark:bg-slate-800">
-              <div className="text-xs text-slate-500 uppercase font-bold">Pendientes</div>
-              <div className="text-2xl font-bold text-amber-600">{stats.pendientes}</div>
-            </Card>
-            <Card className="p-4 py-2 bg-white dark:bg-slate-800">
-              <div className="text-xs text-slate-500 uppercase font-bold">Contactados</div>
-              <div className="text-2xl font-bold text-green-600">{stats.contactados}</div>
-            </Card>
+          <div className="flex flex-col md:flex-row gap-2">
+            <div className="flex gap-2">
+              <Card className="p-4 py-2 bg-white dark:bg-slate-800">
+                <div className="text-xs text-slate-500 uppercase font-bold">Total</div>
+                <div className="text-2xl font-bold text-slate-900 dark:text-white">{stats.total}</div>
+              </Card>
+              <Card className="p-4 py-2 bg-white dark:bg-slate-800">
+                <div className="text-xs text-slate-500 uppercase font-bold">Pendientes</div>
+                <div className="text-2xl font-bold text-amber-600">{stats.pendientes}</div>
+              </Card>
+              <Card className="p-4 py-2 bg-white dark:bg-slate-800">
+                <div className="text-xs text-slate-500 uppercase font-bold">Contactados</div>
+                <div className="text-2xl font-bold text-green-600">{stats.contactados}</div>
+              </Card>
+            </div>
+            
+            {/* Botón descarte masivo prioridad baja */}
+            {fichas.filter(f => f.prioridad?.toLowerCase() === 'baja' && f.estado === 'pendiente').length > 0 && (
+              <Button
+                variant="outline"
+                className="border-orange-300 bg-orange-50 hover:bg-orange-100 dark:bg-orange-950 dark:border-orange-800 dark:hover:bg-orange-900 text-orange-700 dark:text-orange-300"
+                onClick={descartarTodasBajas}
+              >
+                <span className="mr-2">🗑️</span>
+                Descartar todas las bajas ({fichas.filter(f => f.prioridad?.toLowerCase() === 'baja' && f.estado === 'pendiente').length})
+              </Button>
+            )}
           </div>
         </div>
 
@@ -154,44 +237,141 @@ export default function Home() {
           <div className="grid gap-4">
             {fichas.map((ficha) => (
               <Card key={ficha.id} className="overflow-hidden hover:shadow-lg transition-shadow">
-                <CardHeader className="bg-slate-100 dark:bg-slate-800 pb-3">
-                  <div className="flex justify-between items-start gap-4">
-                    <div className="flex-1">
-                      <CardTitle className="text-lg mb-2">
+                
+                {/* HEADER con badges y metadata principal */}
+                <CardHeader className="bg-gradient-to-r from-slate-100 to-slate-50 dark:from-slate-800 dark:to-slate-850 pb-4">
+                  <div className="flex flex-wrap justify-between items-start gap-3">
+                    
+                    {/* Título */}
+                    <div className="flex-1 min-w-0">
+                      <CardTitle className="text-lg mb-3 break-words">
                         {ficha.titulo || 'Sin título'}
                       </CardTitle>
-                      {ficha.institucion && (
-                        <Badge variant="secondary" className="mb-2">
-                          {ficha.institucion}
-                        </Badge>
-                      )}
-                    </div>
-                    <div className="flex gap-2">
-                      {ficha.prioridad && (
-                        <Badge 
-                          variant={
-                            ficha.prioridad === 'Alta' ? 'destructive' : 
-                            ficha.prioridad === 'Media' ? 'default' : 
-                            'outline'
-                          }
-                        >
-                          {ficha.prioridad}
-                        </Badge>
-                      )}
-                      {ficha.canal_recomendado && (
+                      
+                      {/* Badges principales */}
+                      <div className="flex flex-wrap gap-2">
+                        {ficha.prioridad && (
+                          <Badge 
+                            variant={
+                              ficha.prioridad.toLowerCase() === 'alta' ? 'destructive' : 
+                              ficha.prioridad.toLowerCase() === 'media' ? 'default' : 
+                              'outline'
+                            }
+                            className="uppercase"
+                          >
+                            {ficha.prioridad}
+                          </Badge>
+                        )}
+                        
+                        {ficha.canal_recomendado && (
+                          <Badge variant="secondary" className="capitalize">
+                            📢 {ficha.canal_recomendado}
+                          </Badge>
+                        )}
+                        
+                        {ficha.institucion && (
+                          <Badge variant="outline" className="capitalize">
+                            <Building2 className="h-3 w-3 mr-1" />
+                            {ficha.institucion}
+                          </Badge>
+                        )}
+                        
                         <Badge variant="outline" className="capitalize">
-                          {ficha.canal_recomendado}
+                          <Globe className="h-3 w-3 mr-1" />
+                          {ficha.plataforma_social}
                         </Badge>
-                      )}
+                      </div>
+                    </div>
+                    
+                    {/* Metadata derecha */}
+                    <div className="flex flex-col gap-1 text-xs text-slate-500 dark:text-slate-400 text-right">
+                      <div className="flex items-center gap-1">
+                        <Hash className="h-3 w-3" />
+                        <span className="font-mono">{ficha.id.substring(0, 20)}...</span>
+                      </div>
+                      <div className="flex items-center gap-1">
+                        <Calendar className="h-3 w-3" />
+                        <span>{formatearFecha(ficha.fecha_creacion)}</span>
+                      </div>
                     </div>
                   </div>
                 </CardHeader>
 
                 <CardContent className="pt-4 space-y-4">
-                  {/* Snippet */}
+                  
+                  {/* Grid de información de contacto */}
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                    
+                    {/* Email */}
+                    {ficha.email && (
+                      <div className="flex items-center gap-2 bg-slate-100 dark:bg-slate-800 px-3 py-2 rounded-lg">
+                        <Mail className="h-4 w-4 text-slate-500 flex-shrink-0" />
+                        <span className="text-sm font-mono flex-1 truncate">{ficha.email}</span>
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          onClick={() => copiarTexto(ficha.email!, 'Email')}
+                          className="h-6 w-6 p-0 flex-shrink-0"
+                        >
+                          <Copy className="h-3 w-3" />
+                        </Button>
+                      </div>
+                    )}
+
+                    {/* Username */}
+                    {ficha.username && (
+                      <div className="flex items-center gap-2 bg-slate-100 dark:bg-slate-800 px-3 py-2 rounded-lg">
+                        <User className="h-4 w-4 text-slate-500 flex-shrink-0" />
+                        <span className="text-sm font-mono flex-1 truncate">@{ficha.username}</span>
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          onClick={() => copiarTexto(ficha.username!, 'Username')}
+                          className="h-6 w-6 p-0 flex-shrink-0"
+                        >
+                          <Copy className="h-3 w-3" />
+                        </Button>
+                      </div>
+                    )}
+                    
+                    {/* Tipo */}
+                    <div className="flex items-center gap-2 bg-slate-100 dark:bg-slate-800 px-3 py-2 rounded-lg">
+                      <span className="text-xs text-slate-500 uppercase font-bold">Tipo:</span>
+                      <span className="text-sm capitalize">{ficha.tipo}</span>
+                    </div>
+                    
+                    {/* Dominio */}
+                    <div className="flex items-center gap-2 bg-slate-100 dark:bg-slate-800 px-3 py-2 rounded-lg">
+                      <span className="text-xs text-slate-500 uppercase font-bold">Dominio:</span>
+                      <span className="text-sm font-mono truncate">{ficha.dominio}</span>
+                    </div>
+                    
+                    {/* Subreddit */}
+                    {ficha.subreddit && (
+                      <div className="flex items-center gap-2 bg-slate-100 dark:bg-slate-800 px-3 py-2 rounded-lg">
+                        <span className="text-xs text-slate-500 uppercase font-bold">Subreddit:</span>
+                        <span className="text-sm">r/{ficha.subreddit}</span>
+                      </div>
+                    )}
+                    
+                    {/* Grupo Facebook */}
+                    {ficha.grupo_facebook && (
+                      <div className="flex items-center gap-2 bg-slate-100 dark:bg-slate-800 px-3 py-2 rounded-lg">
+                        <span className="text-xs text-slate-500 uppercase font-bold">Grupo FB:</span>
+                        <span className="text-sm truncate">{ficha.grupo_facebook}</span>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Snippet - Contexto */}
                   {ficha.snippet && (
-                    <div className="text-sm text-slate-600 dark:text-slate-400">
-                      {ficha.snippet}
+                    <div className="bg-slate-100 dark:bg-slate-800 p-4 rounded-lg border border-slate-200 dark:border-slate-700">
+                      <h4 className="font-semibold text-slate-900 dark:text-slate-100 mb-2 text-sm uppercase tracking-wide">
+                        📋 Contexto / Descripción
+                      </h4>
+                      <p className="text-sm text-slate-700 dark:text-slate-300 leading-relaxed">
+                        {ficha.snippet}
+                      </p>
                     </div>
                   )}
 
@@ -213,91 +393,53 @@ export default function Home() {
                           Copiar
                         </Button>
                       </div>
-                      <p className="text-sm text-blue-800 dark:text-blue-200">
+                      <p className="text-sm text-blue-800 dark:text-blue-200 leading-relaxed">
                         {ficha.propuesta_comunicativa}
                       </p>
                     </div>
                   )}
 
-                  {/* Información de contacto */}
-                  <div className="flex flex-wrap gap-3">
-                    {ficha.email && (
-                      <div className="flex items-center gap-2 bg-slate-100 dark:bg-slate-800 px-3 py-2 rounded-lg">
-                        <Mail className="h-4 w-4 text-slate-500" />
-                        <span className="text-sm font-mono">{ficha.email}</span>
-                        <Button
-                          size="sm"
-                          variant="ghost"
-                          onClick={() => copiarTexto(ficha.email!, 'Email')}
-                          className="h-6 w-6 p-0"
-                        >
-                          <Copy className="h-3 w-3" />
-                        </Button>
-                      </div>
-                    )}
-
-                    {ficha.username && (
-                      <div className="flex items-center gap-2 bg-slate-100 dark:bg-slate-800 px-3 py-2 rounded-lg">
-                        <User className="h-4 w-4 text-slate-500" />
-                        <span className="text-sm font-mono">@{ficha.username}</span>
-                        <Button
-                          size="sm"
-                          variant="ghost"
-                          onClick={() => copiarTexto(ficha.username!, 'Username')}
-                          className="h-6 w-6 p-0"
-                        >
-                          <Copy className="h-3 w-3" />
-                        </Button>
-                      </div>
-                    )}
-
-                    {ficha.subreddit && (
-                      <div className="flex items-center gap-2 bg-slate-100 dark:bg-slate-800 px-3 py-2 rounded-lg">
-                        <span className="text-sm">r/{ficha.subreddit}</span>
-                        <Button
-                          size="sm"
-                          variant="ghost"
-                          onClick={() => copiarTexto(`r/${ficha.subreddit}`, 'Subreddit')}
-                          className="h-6 w-6 p-0"
-                        >
-                          <Copy className="h-3 w-3" />
-                        </Button>
-                      </div>
-                    )}
-
-                    {ficha.grupo_facebook && (
-                      <div className="flex items-center gap-2 bg-slate-100 dark:bg-slate-800 px-3 py-2 rounded-lg">
-                        <span className="text-sm">{ficha.grupo_facebook}</span>
-                        <Button
-                          size="sm"
-                          variant="ghost"
-                          onClick={() => copiarTexto(ficha.grupo_facebook!, 'Grupo')}
-                          className="h-6 w-6 p-0"
-                        >
-                          <Copy className="h-3 w-3" />
-                        </Button>
-                      </div>
-                    )}
-                  </div>
-
-                  {/* Acciones */}
+                  {/* Botones de acción */}
                   <div className="flex gap-2 pt-2">
                     <Button
-                      onClick={() => abrirURL(ficha.url)}
-                      className="flex-1"
                       variant="outline"
+                      className="flex-1"
+                      onClick={() => abrirURL(ficha.url)}
                     >
                       <ExternalLink className="h-4 w-4 mr-2" />
                       Abrir URL
                     </Button>
                     <Button
+                      variant="default"
+                      className="flex-1 bg-green-600 hover:bg-green-700"
                       onClick={() => marcarContactada(ficha.id)}
-                      className="flex-1 bg-green-600 hover:bg-green-700 text-white"
                     >
                       <CheckCircle className="h-4 w-4 mr-2" />
-                      Marcar como Contactada
+                      Contactada
+                    </Button>
+                    <Button
+                      variant="destructive"
+                      className="flex-1"
+                      onClick={() => descartarFicha(ficha.id)}
+                    >
+                      <span className="mr-2">❌</span>
+                      Descartar
                     </Button>
                   </div>
+                  
+                  {/* Botón rápido de descarte para prioridad baja */}
+                  {ficha.prioridad?.toLowerCase() === 'baja' && ficha.estado === 'pendiente' && (
+                    <div className="mt-3 pt-3 border-t border-slate-200 dark:border-slate-700">
+                      <Button
+                        variant="outline"
+                        className="w-full border-orange-300 bg-orange-50 hover:bg-orange-100 dark:bg-orange-950 dark:border-orange-800 dark:hover:bg-orange-900 text-orange-700 dark:text-orange-300"
+                        onClick={() => descartarFicha(ficha.id)}
+                      >
+                        <span className="mr-2">🗑️</span>
+                        Descarte rápido (Prioridad Baja)
+                      </Button>
+                    </div>
+                  )}
                 </CardContent>
               </Card>
             ))}

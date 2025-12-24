@@ -3,22 +3,37 @@ import requests
 import time
 import json
 from datetime import datetime
+from modulo_lectura_sheets import leer_claves_desde_sheets
 
-# Credenciales confirmadas
-GOOGLE_API_KEY = os.environ.get('GOOGLE_API_KEY', 'AIzaSyBk5KghTy3GkOMbCdZDcduaeyrQaaP_KcA')
-GOOGLE_CSE_ID = os.environ.get('GOOGLE_CSE_ID', '0679f1599bd26402e')
+# Cargar credenciales desde Google Sheets
+_config = None
 
-def ejecutar_busqueda(query, num_resultados=10):
+def _get_config():
+    """Obtiene configuración (usa cache)"""
+    global _config
+    if _config is None:
+        _config = leer_claves_desde_sheets()
+    return _config
+
+def ejecutar_busqueda(query, num_resultados=None):
     """
     Ejecuta una búsqueda en Google Custom Search API.
     
     Args:
         query (str): Término de búsqueda.
-        num_resultados (int): Número de resultados a devolver (max 10 por llamada).
+        num_resultados (int): Número de resultados a devolver. Si es None, usa NUM_RESULTADOS_GOOGLE de config.
         
     Returns:
         list: Lista de diccionarios con resultados.
     """
+    config = _get_config()
+    
+    GOOGLE_API_KEY = config['GOOGLE_API_KEY']
+    GOOGLE_CSE_ID = config['GOOGLE_CSE_ID']
+    
+    if num_resultados is None:
+        num_resultados = config['NUM_RESULTADOS_GOOGLE']
+    
     if not GOOGLE_API_KEY or not GOOGLE_CSE_ID:
         print("❌ Error: Faltan credenciales de Google Search")
         return []
@@ -61,17 +76,18 @@ def ejecutar_busqueda(query, num_resultados=10):
 
 def prueba_integracion():
     """Prueba de integración: Lectura Sheets -> Búsqueda Google"""
-    try:
-        import modulo_lectura_sheets as lector
-    except ImportError:
-        print("❌ No se pudo importar modulo_lectura_sheets")
-        return
-
+    from modulo_lectura_sheets import obtener_senales
+    
     print("🚀 INICIANDO PRUEBA DE INTEGRACIÓN (PASO 2)")
     print("===========================================")
     
+    config = _get_config()
+    print(f"✅ Configuración cargada desde Google Sheets")
+    print(f"   - GOOGLE_CSE_ID: {config['GOOGLE_CSE_ID']}")
+    print(f"   - NUM_RESULTADOS_GOOGLE: {config['NUM_RESULTADOS_GOOGLE']}")
+    
     # 1. Leer señales
-    senales = lector.obtener_senales(GOOGLE_API_KEY)
+    senales = obtener_senales(config['GOOGLE_API_KEY'])
     if not senales:
         print("❌ No se obtuvieron señales. Abortando.")
         return
