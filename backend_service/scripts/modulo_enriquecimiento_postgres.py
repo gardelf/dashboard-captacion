@@ -249,6 +249,7 @@ def enriquecer_fichas(openai_key=None, limite=None):
     
     procesadas = 0
     errores = 0
+    descartadas_auto = 0
     
     for i, ficha in enumerate(fichas, 1):
         titulo_corto = (ficha['titulo'] or 'Sin título')[:50]
@@ -259,13 +260,23 @@ def enriquecer_fichas(openai_key=None, limite=None):
         datos = enriquecer_con_chatgpt(ficha, prompt_system, api_key)
         
         if datos:
+            # Si es prioridad baja, marcar como descartado automáticamente
+            if datos.get('prioridad', '').lower() == 'baja':
+                datos['estado'] = 'descartado'
+                descartadas_auto += 1
+                print(f"  ✅ Enriquecida y marcada como DESCARTADA (prioridad baja)")
+            else:
+                datos['estado'] = 'pendiente'
+                print(f"  ✅ Enriquecida y actualizada")
+            
             # Actualizar en PostgreSQL
             if actualizar_ficha(ficha['id'], datos):
-                print(f"  ✅ Enriquecida y actualizada")
                 print(f"     Prioridad: {datos.get('prioridad')}")
+                print(f"     Estado: {datos.get('estado')}")
                 print(f"     Canal: {datos.get('canal_recomendado')}")
                 propuesta_preview = (datos.get('propuesta_comunicativa', '') or '')[:60]
-                print(f"     Propuesta: {propuesta_preview}...")
+                if propuesta_preview:
+                    print(f"     Propuesta: {propuesta_preview}...")
                 procesadas += 1
             else:
                 print(f"  ❌ Error al actualizar")
@@ -278,6 +289,8 @@ def enriquecer_fichas(openai_key=None, limite=None):
     print("=" * 60)
     print("✅ ENRIQUECIMIENTO COMPLETADO")
     print(f"   Procesadas: {procesadas}")
+    print(f"   └─ Pendientes (ALTA/MEDIA): {procesadas - descartadas_auto}")
+    print(f"   └─ Descartadas automáticamente (BAJA): {descartadas_auto}")
     print(f"   Errores: {errores}")
     print("=" * 60)
 
