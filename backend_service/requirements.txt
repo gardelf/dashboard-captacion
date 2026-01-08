@@ -1,6 +1,5 @@
 flask
 flask-cors
-supabase
 openai
 gspread
 google-api-python-client

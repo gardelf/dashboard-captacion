@@ -1,0 +1,127 @@
+name: Lead Capture Pipeline - SQLite
+
+on:
+  schedule:
+    # Ejecutar cada 6 horas: 0:00, 6:00, 12:00, 18:00 UTC
+    - cron: '0 0,6,12,18 * * *'
+  
+  # Permitir ejecución manual
+  workflow_dispatch:
+
+jobs:
+  pipeline:
+    runs-on: ubuntu-latest
+    
+    steps:
+      # 1. Checkout del código
+      - name: Checkout code
+        uses: actions/checkout@v3
+      
+      # 2. Descargar base de datos anterior (si existe)
+      - name: Download previous database
+        uses: actions/download-artifact@v3
+        with:
+          name: fichas-db
+          path: backend_service
+        continue-on-error: true
+      
+      # 3. Configurar Python
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.11'
+      
+      # 4. Instalar dependencias
+      - name: Install dependencies
+        run: |
+          cd backend_service
+          pip install --upgrade pip
+          pip install -r requirements.txt
+      
+      # 5. Ejecutar pipeline
+      - name: Run lead capture pipeline
+        env:
+          GOOGLE_API_KEY: ${{ secrets.GOOGLE_API_KEY }}
+          GOOGLE_CSE_ID: ${{ secrets.GOOGLE_CSE_ID }}
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+          SHEET_ID: ${{ secrets.SHEET_ID }}
+          LIMITE_KEYWORDS: ${{ secrets.LIMITE_KEYWORDS }}
+          LIMITE_ENRIQUECIMIENTO: ${{ secrets.LIMITE_ENRIQUECIMIENTO }}
+          NUM_RESULTADOS_GOOGLE: ${{ secrets.NUM_RESULTADOS_GOOGLE }}
+          DB_PATH: fichas.db
+          JSON_OUTPUT: fichas.json
+        run: |
+          cd backend_service/scripts
+          python3 orquestador_maestro.py
+      
+      # 6. Generar JSON estático
+      - name: Generate static JSON
+        env:
+          DB_PATH: backend_service/fichas.db
+          JSON_OUTPUT: fichas.json
+        run: |
+          cd backend_service/scripts
+          python3 modulo_exportacion_json.py
+          # Copiar JSON a la raíz para GitHub Pages
+          cp fichas.json ../../fichas.json
+          cp fichas.csv ../../fichas.csv 2>/dev/null || true
+      
+      # 7. Guardar base de datos como artifact
+      - name: Upload SQLite database
+        uses: actions/upload-artifact@v3
+        with:
+          name: fichas-db
+          path: backend_service/fichas.db
+          retention-days: 90
+      
+      # 8. Guardar JSON como artifact
+      - name: Upload JSON export
+        uses: actions/upload-artifact@v3
+        with:
+          name: fichas-json
+          path: fichas.json
+          retention-days: 30
+      
+      # 9. Commit y push de cambios (JSON + DB)
+      - name: Commit and push changes
+        run: |
+          git config --local user.email "action@github.com"
+          git config --local user.name "GitHub Action"
+          
+          # Agregar archivos
+          git add fichas.json fichas.csv 2>/dev/null || true
+          
+          # Commit si hay cambios
+          if git diff --cached --quiet; then
+            echo "✅ Sin cambios en JSON"
+          else
+            git commit -m "Update: Fichas exportadas - $(date -u +'%Y-%m-%d %H:%M:%S UTC')"
+            git push
+          fi
+        continue-on-error: true
+      
+      # 10. Publicar en GitHub Pages
+      - name: Deploy to GitHub Pages
+        uses: peaceiris/actions-gh-pages@v3
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_dir: ./
+          cname: fichas.example.com  # ← Cambiar por tu dominio (opcional)
+        continue-on-error: true
+      
+      # 11. Notificación de éxito
+      - name: Success notification
+        if: success()
+        run: |
+          echo "✅ Pipeline completado exitosamente"
+          echo "📊 Estadísticas:"
+          echo "   - Base de datos: fichas.db"
+          echo "   - JSON exportado: fichas.json"
+          echo "   - GitHub Pages: Actualizado"
+      
+      # 12. Notificación de error
+      - name: Error notification
+        if: failure()
+        run: |
+          echo "❌ Pipeline falló"
+          echo "Revisar logs para más detalles"
