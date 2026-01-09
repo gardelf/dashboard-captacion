@@ -15,11 +15,11 @@ jobs:
     steps:
       # 1. Checkout del código
       - name: Checkout code
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
       
       # 2. Descargar base de datos anterior (si existe)
       - name: Download previous database
-        uses: actions/download-artifact@v3
+        uses: actions/download-artifact@v4
         with:
           name: fichas-db
           path: backend_service
@@ -68,7 +68,7 @@ jobs:
       
       # 7. Guardar base de datos como artifact
       - name: Upload SQLite database
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: fichas-db
           path: backend_service/fichas.db
@@ -76,7 +76,7 @@ jobs:
       
       # 8. Guardar JSON como artifact
       - name: Upload JSON export
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: fichas-json
           path: fichas.json
@@ -102,7 +102,7 @@ jobs:
       
       # 10. Publicar en GitHub Pages
       - name: Deploy to GitHub Pages
-        uses: peaceiris/actions-gh-pages@v3
+        uses: peaceiris/actions-gh-pages@v4
         with:
           github_token: ${{ secrets.GITHUB_TOKEN }}
           publish_dir: ./
