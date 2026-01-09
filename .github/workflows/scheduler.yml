@@ -37,7 +37,7 @@ jobs:
           cd backend_service/scripts
           python3 orquestador_maestro.py
       
-      - name: Copy JSON to docs folder
+      - name: Copy fichas.json to docs
         run: |
           cp backend_service/scripts/fichas.json ./docs/fichas.json
       
