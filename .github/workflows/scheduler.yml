@@ -37,15 +37,15 @@ jobs:
           cd backend_service/scripts
           python3 orquestador_maestro.py
       
-      - name: Copy JSON to root
+      - name: Copy JSON to docs folder
         run: |
-          cp backend_service/scripts/fichas.json ./fichas.json || true
+          cp backend_service/scripts/fichas.json ./docs/fichas.json
       
-      - name: Commit and push JSON
+      - name: Commit and push changes
         run: |
           git config user.email "action@github.com"
           git config user.name "GitHub Action"
-          git add fichas.json
+          git add docs/fichas.json
           git diff --cached --quiet || git commit -m "Update: fichas.json - $(date -u +'%Y-%m-%d %H:%M:%S UTC')"
           git push || true
       
@@ -54,5 +54,5 @@ jobs:
         if: always()
         with:
           name: fichas-json
-          path: fichas.json
+          path: docs/fichas.json
           retention-days: 30
